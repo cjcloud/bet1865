@@ -91,6 +91,17 @@ export default async function ConfirmPage({
         </div>
       )}
 
+      {bet.ai_raw_response && (
+        <details className="rounded border border-white/20 bg-black/30 px-4 py-3 text-sm text-white/70">
+          <summary className="cursor-pointer text-white/90">
+            Debug: what Claude actually returned (Phase 3 testing — remove before real launch)
+          </summary>
+          <pre className="mt-3 whitespace-pre-wrap break-words text-xs">
+            {JSON.stringify(bet.ai_raw_response, null, 2)}
+          </pre>
+        </details>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           {signedUrlData?.signedUrl ? (
