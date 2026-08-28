@@ -15,12 +15,16 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-background text-white antialiased">
         <header className="border-b border-white/10 bg-surface">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-            <a href="/" className="flex items-center gap-2">
+          <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <a href="/" className="flex items-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo-betcnt.png" alt="betc*nt" className="h-8 w-auto" />
+              <img
+                src="/logo-betcnt.png"
+                alt="betc*nt"
+                className="h-7 w-auto sm:h-8"
+              />
             </a>
-            <nav className="flex gap-6 text-sm font-medium text-white/80">
+            <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm font-medium text-white/80">
               <a href="/" className="hover:text-accent">Ranking</a>
               <a href="/upload" className="hover:text-accent">Upload Slip</a>
               <a href="/rules" className="hover:text-accent">Rules</a>
