@@ -63,6 +63,32 @@ export default async function ConfirmPage({
 
   const legByNumber = new Map((legs ?? []).map((l) => [l.leg_number, l]));
 
+  // A leg that failed validation (e.g. missing kick-off time) is never
+  // written to bet_legs (SPEC.md §5's NOT NULL / odds >= 2.00 constraints
+  // would reject it), but the AI may still have read the teams/league/odds
+  // correctly. Fall back to that raw extraction so the form is pre-filled
+  // with everything Claude *did* get right, and you only have to fill the
+  // gap rather than retype the whole leg from the slip.
+  type AiLeg = {
+    leg_number?: number | null;
+    league?: string | null;
+    home_team?: string | null;
+    away_team?: string | null;
+    match_datetime?: string | null;
+    predicted_outcome?: string | null;
+    odds?: number | null;
+  };
+  const aiLegs: AiLeg[] =
+    (bet.ai_raw_response as { parsed?: { legs?: AiLeg[] } } | null)?.parsed?.legs ?? [];
+  const aiLegByNumber = new Map(aiLegs.map((l, i) => [l.leg_number ?? i + 1, l]));
+
+  function legField<K extends keyof AiLeg>(legNumber: number, key: K): AiLeg[K] | null {
+    const saved = legByNumber.get(legNumber);
+    if (saved && saved[key] != null) return saved[key];
+    const fromAi = aiLegByNumber.get(legNumber);
+    return fromAi?.[key] ?? null;
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-accent">Check the details</h1>
@@ -164,7 +190,12 @@ export default async function ConfirmPage({
           </fieldset>
 
           {[1, 2, 3].map((legNumber) => {
-            const leg = legByNumber.get(legNumber);
+            const league = legField(legNumber, "league");
+            const homeTeam = legField(legNumber, "home_team");
+            const awayTeam = legField(legNumber, "away_team");
+            const matchDatetime = legField(legNumber, "match_datetime");
+            const predictedOutcome = legField(legNumber, "predicted_outcome");
+            const odds = legField(legNumber, "odds");
             return (
               <fieldset key={legNumber} className="space-y-3 border-t border-white/10 pt-4">
                 <legend className="text-sm text-white/70 mb-1">Leg {legNumber}</legend>
@@ -175,7 +206,7 @@ export default async function ConfirmPage({
                 <select
                   id={`leg_${legNumber}_league`}
                   name={`leg_${legNumber}_league`}
-                  defaultValue={leg?.league ?? ""}
+                  defaultValue={league ?? ""}
                   className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                 >
                   <option value="">—</option>
@@ -195,7 +226,7 @@ export default async function ConfirmPage({
                       id={`leg_${legNumber}_home_team`}
                       name={`leg_${legNumber}_home_team`}
                       type="text"
-                      defaultValue={leg?.home_team ?? ""}
+                      defaultValue={homeTeam ?? ""}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     />
                   </div>
@@ -207,7 +238,7 @@ export default async function ConfirmPage({
                       id={`leg_${legNumber}_away_team`}
                       name={`leg_${legNumber}_away_team`}
                       type="text"
-                      defaultValue={leg?.away_team ?? ""}
+                      defaultValue={awayTeam ?? ""}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     />
                   </div>
@@ -220,7 +251,7 @@ export default async function ConfirmPage({
                   id={`leg_${legNumber}_match_datetime`}
                   name={`leg_${legNumber}_match_datetime`}
                   type="datetime-local"
-                  defaultValue={toLocalDatetimeInputValue(leg?.match_datetime)}
+                  defaultValue={toLocalDatetimeInputValue(matchDatetime)}
                   className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                 />
 
@@ -235,7 +266,7 @@ export default async function ConfirmPage({
                     <select
                       id={`leg_${legNumber}_predicted_outcome`}
                       name={`leg_${legNumber}_predicted_outcome`}
-                      defaultValue={leg?.predicted_outcome ?? ""}
+                      defaultValue={predictedOutcome ?? ""}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     >
                       <option value="">—</option>
@@ -256,7 +287,7 @@ export default async function ConfirmPage({
                       type="number"
                       step="0.01"
                       min="2.00"
-                      defaultValue={leg?.odds ?? ""}
+                      defaultValue={odds ?? ""}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     />
                   </div>
