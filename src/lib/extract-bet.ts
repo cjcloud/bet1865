@@ -50,7 +50,17 @@ export async function extractBetFromImage(
     );
   }
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  // Some Anthropic Console API keys are "identity-linked" (Workload Identity
+  // Federation) and require the workspace they act in to be specified
+  // explicitly via this header — otherwise every call 400s with
+  // "anthropic-workspace-id is required...". Optional: only set
+  // ANTHROPIC_WORKSPACE_ID if you hit that error (find the id, wrkspc_..., in
+  // the Anthropic Console under Settings > Workspaces).
+  const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
+  const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY!,
+    defaultHeaders: workspaceId ? { "anthropic-workspace-id": workspaceId } : undefined,
+  });
 
   const message = await anthropic.messages.create({
     model,
