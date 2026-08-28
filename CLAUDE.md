@@ -15,3 +15,6 @@ Key non-negotiables to keep front of mind:
   examples, and keep it implemented as an isolated, unit-tested pure function.
 - betc*nt scoring (primary/secondary) — see SPEC.md §4, with a worked example.
 - Players have no login; only the Admin route is authenticated — see SPEC.md §6.
+- Mobile is the primary target, not an afterthought: nav collapses to a
+  hamburger below the `sm` breakpoint, tables scroll within their own container
+  rather than the page, forms are touch-sized -- see SPEC.md §6.2.

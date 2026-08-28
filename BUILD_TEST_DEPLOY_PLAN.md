@@ -46,15 +46,23 @@ Supabase project reachable from the app.
 1. Configure Supabase Auth for a single admin account.
 2. Build auth middleware protecting `/admin/*`.
 3. Build shared app shell/layout matching the branding in spec §7 (dark theme, yellow
-   accent, header with betc\*nt logo, nav: Rules / Upload / Ranking / Admin).
+   accent, header with betc\*nt logo, nav: Rules / Upload / Ranking / Admin) —
+   **mobile-first per spec §6.2**: the nav collapses to a hamburger/menu icon below
+   the `sm` breakpoint (dropdown or slide-in panel), and only expands to the
+   inline logo-plus-links row at wider widths. Verify at a few common phone
+   viewport widths (e.g. 375px, 414px), not just by shrinking a desktop window.
 
 **Exit criteria**: `/admin` redirects to login when signed out; admin can sign in and
-see an empty dashboard shell.
+see an empty dashboard shell; the nav collapses to a hamburger below `sm` and expands
+correctly above it.
 
 ## Phase 3 — Betslip upload & AI parsing (2–3 days)
 
 1. Build `/upload`: player dropdown, bookmaker select/create, file input →
-   Supabase Storage (private bucket).
+   Supabase Storage (private bucket). Per spec §6.2, the file input should allow
+   picking directly from the phone's camera/gallery (`<input type="file"
+   accept="image/*" capture>`), since a phone photo of the slip is the primary
+   real-world path, not a desktop file browser.
 2. Server route: on upload, call Claude vision API with the image + a structured
    extraction prompt (fields per §5's `bets`/`bet_legs` schema); parse/validate the
    JSON response with a schema library (e.g. Zod); on any validation failure or
@@ -104,12 +112,15 @@ correctly off real event data (not just synthetic test fixtures).
 ## Phase 5 — Ranking & Rules pages (1 day)
 
 1. `/ranking`: leaderboard table sorted primary asc / secondary desc, per-player
-   drill-down (bet history, streak, win rate), simple chart(s).
+   drill-down (bet history, streak, win rate), simple chart(s). Per spec §6.2, the
+   table scrolls horizontally within its own container on narrow screens rather
+   than forcing the whole page to scroll sideways.
 2. `/rules`: render spec §3–4 content (store as structured content so admin can tweak
    wording without a code deploy, if desired — otherwise static MDX is fine for v1).
 
 **Exit criteria**: ranking table matches the worked example in spec §4 when seeded
-with equivalent test data.
+with equivalent test data, and remains fully usable (no page-level horizontal
+scroll, table scrolls within its own container) at a 375px viewport width.
 
 ## Phase 6 — Admin correction tooling (1–2 days)
 

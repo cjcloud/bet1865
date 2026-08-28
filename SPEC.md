@@ -328,6 +328,24 @@ always recomputed from settled data.
 - **Rate limits**: API-Football free tier (≈100 requests/day) — the settlement job
   batches lookups (one call per fixture date/league rather than per leg) and caches
   fixture data in a local `fixtures_cache` table to stay well under quota.
+- **Mobile optimisation**: the app must be fully usable on mobile screens — this is
+  not a "nice to have," since players will realistically upload slips and check the
+  ranking from their phones far more often than from a desktop. Concretely:
+  - The header navigation must **collapse to a hamburger/menu icon below the `sm`
+    breakpoint** (~640px), opening either a dropdown or a slide-in panel listing
+    Ranking / Upload Slip / Rules / Admin, rather than wrapping nav links onto
+    multiple cramped lines next to the logo.
+  - All pages (Ranking table, Upload flow, Rules, Admin) must be laid out
+    responsively — tables that would overflow a phone width scroll horizontally
+    within their own container rather than breaking the page layout; forms and
+    buttons are touch-sized (minimum ~44px tap targets); no fixed-width layouts
+    that force horizontal scrolling of the whole page.
+  - The Upload page in particular should support picking a photo directly from the
+    phone's camera/gallery (a plain `<input type="file" accept="image/*" capture>`
+    covers this without extra libraries), since that's the primary real-world
+    upload path.
+  - Treat mobile as the primary target and desktop as the secondary, wider
+    breakpoint — design mobile-first and expand up, rather than the reverse.
 
 ## 7. Branding & Look-and-Feel
 
@@ -342,6 +360,8 @@ always recomputed from settled data.
   `public/logo-betcnt.png`) at project scaffold time and reference it in the header
   and favicon.
 - A dark theme is primary; a light theme is not required for v1 unless requested.
+- The theme and component choices must hold up at mobile widths, not just the
+  desktop reference screenshot — see the mobile-optimisation requirement in §6.2.
 
 ## 8. Explicit v1 Scope Boundaries (assumptions to confirm)
 
