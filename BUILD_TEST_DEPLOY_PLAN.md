@@ -186,7 +186,8 @@ first live trial week.
 ## Open decisions to pin down before Phase 0 starts
 
 1. Exact Anthropic model to use for slip-vision extraction (cost/accuracy trade-off).
-2. Admin login method: Supabase email+password vs magic link.
+2. ~~Admin login method: Supabase email+password vs magic link.~~ Decided: magic
+   link (Phase 2, complete).
 3. Bookmaker seed list beyond Betfair (William Hill, Bet365, Sky Bet, Paddy Power,
    Ladbrokes, Coral, …) — confirm which ones the group actually uses.
 4. Confirm API-Football (RapidAPI) plan/key is provisioned before Phase 4 starts,

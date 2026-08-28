@@ -17,3 +17,16 @@ npm run dev
 
 Schema lives in `supabase/migrations/0001_init.sql`, seed data in
 `supabase/seed.sql`. Apply via the Supabase CLI or SQL editor.
+
+## Admin auth (one-time setup)
+
+The Admin area (`/admin/*`) uses Supabase magic-link sign-in, restricted to a single
+pre-created admin user:
+
+1. In Supabase: **Authentication → Users → Add user**, enter your admin email
+   (auto-confirm it, no password needed).
+2. In Supabase: **Authentication → Sign In / Providers** (or **Auth → Settings**,
+   naming varies by dashboard version), turn **off** "Allow new user signups" — this
+   ensures `signInWithOtp` only issues a magic link to the user you just created,
+   not to anyone who types an email into the login form.
+3. Visit `/admin/login`, enter that email, and follow the link sent to your inbox.

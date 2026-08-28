@@ -289,10 +289,13 @@ always recomputed from settled data.
   to `pending_review` rather than guessing, with **admin override always available**
   (see §6.4) to resolve it by hand.
 - **Auth**: **admin-only** authentication via Supabase Auth (single admin account,
-  email+password or magic link — CJ's choice at build time). Players are plain data
-  rows with no login; the public-facing pages (Upload, Ranking, Rules) are accessible
-  without auth, gated only by it being a private/unlisted deployment. The Admin page
-  is the only route behind auth middleware.
+  **magic link** — decided). Only the pre-created admin user can sign in: "Allow new
+  user signups" is disabled in Supabase Auth settings, so `signInWithOtp` only issues
+  a link for that one existing user rather than letting any email create an account.
+  Players are plain data rows with no login; the public-facing pages (Upload,
+  Ranking, Rules) are accessible without auth, gated only by it being a
+  private/unlisted deployment. The Admin page (`/admin/*`) is the only route behind
+  auth middleware, which redirects signed-out visitors to `/admin/login`.
 
 ### 6.1 Pages
 
