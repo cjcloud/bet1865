@@ -56,25 +56,34 @@ Supabase project reachable from the app.
 see an empty dashboard shell; the nav collapses to a hamburger below `sm` and expands
 correctly above it.
 
-## Phase 3 — Betslip upload & AI parsing (2–3 days)
+## Phase 3 — Betslip upload & AI parsing (2–3 days) — code complete, pending live test
 
-1. Build `/upload`: player dropdown, bookmaker select/create, file input →
-   Supabase Storage (private bucket). Per spec §6.2, the file input should allow
-   picking directly from the phone's camera/gallery (`<input type="file"
-   accept="image/*" capture>`), since a phone photo of the slip is the primary
-   real-world path, not a desktop file browser.
-2. Server route: on upload, call Claude vision API with the image + a structured
-   extraction prompt (fields per §5's `bets`/`bet_legs` schema); parse/validate the
-   JSON response with a schema library (e.g. Zod); on any validation failure or
-   low-confidence field, still save what was extracted with `status =
-   'pending_review'` and surface it to the uploader for a quick eyeball-confirm.
-3. Insert `bets` + `bet_legs` rows; store the full raw AI response in
-   `ai_raw_response` for audit/debugging.
-4. Build the confirm screen (post-upload): show extracted fields next to the slip
-   image, allow the uploader to correct obvious mistakes before final save.
+1. ~~Build `/upload`: player dropdown, bookmaker select/create, file input →
+   Supabase Storage (private bucket)~~ Done — `src/app/upload/page.tsx` +
+   `UploadForm.tsx`, with `capture="environment"` on the file input per §6.2.
+2. ~~Server route: on upload, call Claude vision API...~~ Done —
+   `src/app/api/upload/route.ts` + `src/lib/extract-bet.ts` +
+   `src/lib/bet-schema.ts`. Uses a loose Zod schema (every field optional) since
+   real OCR is imperfect; only legs with every field present and odds ≥ 2.0 are
+   inserted into `bet_legs`, everything else is left out and noted in
+   `admin_notes` rather than guessed at or silently dropped.
+3. ~~Insert `bets` + `bet_legs` rows; store the full raw AI response~~ Done —
+   `ai_raw_response` stores `{ raw, parsed, extraction_error }`.
+4. ~~Build the confirm screen (post-upload)~~ Done —
+   `src/app/upload/confirm/[id]/page.tsx` + `actions.ts`, a server action form,
+   slip image via a signed URL next to editable bet + 3-leg fields.
+5. New: private `betslips` Storage bucket via
+   `supabase/migrations/0002_storage.sql` (run this in the Supabase SQL editor
+   alongside 0001 — service-role-only policy, no client-side Storage access).
+6. New required env vars: `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` (the latter
+   is deliberately not hardcoded — set it to a current vision-capable Claude
+   model id; see README.md's env var table and open decision #1 below).
 
 **Exit criteria**: uploading a real (or realistic test) betslip screenshot produces a
 correctly-populated `bets`/`bet_legs` pair with legs at odds ≥ 2.0, viewable in Admin.
+Verified so far: `tsc --noEmit` and `next build` both pass clean. **Not yet verified**:
+an actual slip photo end-to-end against the live Vercel deployment — needs the Storage
+migration applied and `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` set in Vercel first.
 
 ## Phase 4 — Result lookup & settlement engine (2–3 days)
 
