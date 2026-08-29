@@ -80,10 +80,24 @@ correctly above it.
    model id; see README.md's env var table and open decision #1 below).
 
 **Exit criteria**: uploading a real (or realistic test) betslip screenshot produces a
-correctly-populated `bets`/`bet_legs` pair with legs at odds ≥ 2.0, viewable in Admin.
-Verified so far: `tsc --noEmit` and `next build` both pass clean. **Not yet verified**:
-an actual slip photo end-to-end against the live Vercel deployment — needs the Storage
-migration applied and `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` set in Vercel first.
+correctly-populated `bets`/`bet_legs` pair, viewable in Admin. Legs priced below the
+2.0 evens minimum are recorded and red-flagged (`below_minimum_odds`), never rejected
+or silently dropped — see SPEC.md §3.10.
+
+**Live-tested against the deployed app** (28 Aug 2026) and fixed along the way:
+- An "identity-linked" Anthropic API key needs an `anthropic-workspace-id` header —
+  `ANTHROPIC_WORKSPACE_ID` env var added, see README.md.
+- A leg missing just one field (e.g. kick-off time not legible on the slip) was
+  discarded entirely instead of saving what *did* parse — confirm screen now
+  pre-fills from the raw AI extraction as a fallback so only the true gap needs
+  filling in by hand.
+- The extraction prompt mis-converted fractional odds (e.g. read "11/10" as `1.10`
+  instead of correctly converting to `2.10`) — prompt fixed with the conversion
+  formula and worked examples (SPEC.md §3.11); DB's old `odds >= 2.00` floor also
+  removed (migration `0003_odds_flag.sql`) per the §3.10 red-flag-don't-reject
+  change above.
+- Debug view added to the confirm screen showing Claude's raw extraction JSON —
+  remove before real launch.
 
 ## Phase 4 — Result lookup & settlement engine (2–3 days)
 

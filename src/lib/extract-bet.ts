@@ -35,6 +35,7 @@ Rules:
 - There should be exactly 3 legs (this is always a treble). If you can only make out 1 or 2, still return however many you can read, each as its own object.
 - "league" must be your best classification of which of the four English divisions the match is in (Premier League, EFL Championship, EFL League One, EFL League Two) based on team names/context — use null only if you genuinely cannot tell.
 - "predicted_outcome" is which result the slip is betting on for that leg (home win / away win / draw), not the actual match result.
+- ODDS FORMAT — read this carefully: UK bet slips very commonly show odds as a FRACTION (e.g. "11/10", "6/5", "20/23", "5/2"), not a decimal. "odds" must always be the DECIMAL price. If the slip shows a fraction, convert it yourself using decimal = 1 + (numerator ÷ denominator), rounded to 2 decimal places — do NOT just copy the fraction's digits as if they were already a decimal (e.g. "11/10" is NOT 1.10, it converts to 2.10; "6/5" is NOT 1.20, it converts to 2.20; "20/23" converts to approximately 1.87). If the slip already shows a decimal price (e.g. "2.10"), use that value directly with no conversion.
 - If a field is illegible or absent, use null for that field rather than guessing a plausible-looking value.
 - Set "confidence" to "low" if more than one field across the whole slip was illegible or ambiguous.`;
 

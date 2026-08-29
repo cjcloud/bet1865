@@ -29,8 +29,11 @@ logic. Any change to this section must be mirrored on that page.
 1. Each week, one of the six players places a **treble** (3-leg accumulator) bet.
 2. All three legs must be football matches from the **English top-flight domestic
    pyramid**: Premier League, EFL Championship, EFL League One, EFL League Two.
-3. Each leg must be priced at **Evens (decimal 2.0) or better** (i.e. odds ≥ 2.0) at
-   the time the bet is placed.
+3. Each leg is *intended* to be priced at **Evens (decimal 2.0) or better** (i.e. odds
+   ≥ 2.0) at the time the bet is placed — but the app never rejects an upload for
+   breaking this. Every slip is accepted and recorded exactly as it reads; any leg
+   priced below 2.0 is **red-flagged** for admin attention rather than blocked or
+   silently dropped (see §3.10).
 4. Stake is fixed at **£10** per bet.
 5. Once placed, the player uploads a screenshot of the bet slip to the app.
 6. The app extracts and stores: bet date, each leg's home/away teams, the predicted
@@ -137,6 +140,43 @@ algorithm. For every other bookmaker, only `score_at_ft` matters and the goal-ev
 walk is unnecessary — `result(score_at_ft) == predicted_outcome` settles the leg
 directly.
 
+### 3.10 Odds below the evens minimum — flag, never reject
+
+Rule 3 says legs are *intended* to be priced at 2.0 or better, but real slips
+sometimes don't comply (a player misjudges a leg, or includes a short-priced
+favourite). The app's job is to faithfully record what the slip actually shows, not
+to gatekeep what counts as a valid upload — so:
+
+- `bet_legs.odds` has **no lower-bound constraint** in the database. Whatever decimal
+  value the slip shows (or the uploader/admin corrects it to) is stored as-is.
+- `bet_legs.below_minimum_odds` is a generated column (`odds < 2.00`) — always
+  correct, never drifts out of sync with `odds`.
+- Any leg with `below_minimum_odds = true` is surfaced as a visible red flag on the
+  confirm screen and in Admin, so it's never quietly missed — but it does **not**
+  block saving the bet, and does not by itself change settlement or scoring. Whether
+  a flagged bet counts normally, gets voided, or needs a manual ruling is an admin
+  judgement call (Phase 6 override tooling), not something the app decides
+  automatically.
+- This replaces an earlier draft of this spec, which had the app silently discard
+  any leg priced under 2.0 rather than record and flag it — that behaviour was
+  wrong and has been corrected.
+
+### 3.11 Fractional-to-decimal odds conversion (AI extraction)
+
+UK bet slips commonly print **fractional odds** (e.g. `11/10`, `6/5`, `20/23`)
+instead of decimal. The slip-parsing prompt (§6) must convert these correctly:
+
+```
+decimal_odds = 1 + (numerator / denominator)
+```
+
+Worked examples: `11/10` → 1 + 1.10 = **2.10**; `6/5` → 1 + 1.20 = **2.20**;
+`20/23` → 1 + 0.8696 ≈ **1.87**. A fraction's digits must never be copied directly
+as if they were already a decimal price (e.g. reading `11/10` as `1.10`) — that
+silently halves the true odds and was an early bug in this app's extraction prompt,
+corrected once found. Odds already printed in decimal format are used as-is, no
+conversion needed.
+
 ## 4. Scoring — "betc\*nt" Ranking
 
 Every player starts each season at **0 / 0**. Two scores are tracked per player:
@@ -218,7 +258,8 @@ create table bet_legs (
   away_team           text not null,
   match_datetime      timestamptz not null,
   predicted_outcome   predicted_outcome not null,
-  odds                numeric(6,2) not null check (odds >= 2.00),
+  odds                numeric(6,2) not null check (odds > 0), -- no 2.0 floor; see §3.10
+  below_minimum_odds  boolean generated always as (odds < 2.00) stored, -- red-flag, never blocks (§3.10)
   external_fixture_id text,                  -- API-Football fixture id, once matched
   status              leg_status not null default 'pending',
   score_home_90       smallint,              -- derived: tally of normal-time goals only (§3.9 step 2)
@@ -275,7 +316,10 @@ always recomputed from settled data.
 - **Slip parsing**: uploaded image → Anthropic **Claude vision API call** (server-side,
   using an Anthropic API key stored as a Vercel/Supabase secret) → structured JSON
   matching the `bets`/`bet_legs` schema → inserted as `pending_review` for admin to
-  confirm (or auto-confirm if confidence is high — configurable).
+  confirm (or auto-confirm if confidence is high — configurable). Odds must be
+  converted from fractional to decimal where the slip shows fractional pricing —
+  see §3.11's formula and worked examples; this is a common real-slip case, not an
+  edge case, since most UK bookmaker slips print fractional odds.
 - **Result lookup / settlement**: a scheduled job (Vercel Cron hitting an API route, or
   a Supabase scheduled Edge Function) queries **API-Football (RapidAPI)** for fixtures
   across the four divisions, matches them to `bet_legs` by team names + date, pulls

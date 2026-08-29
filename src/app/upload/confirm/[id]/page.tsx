@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { LEAGUE_CODES, PREDICTED_OUTCOMES } from "@/lib/bet-schema";
+import { LEAGUE_CODES, PREDICTED_OUTCOMES, isBelowMinimumOdds } from "@/lib/bet-schema";
 import { updateBetAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -198,7 +198,14 @@ export default async function ConfirmPage({
             const odds = legField(legNumber, "odds");
             return (
               <fieldset key={legNumber} className="space-y-3 border-t border-white/10 pt-4">
-                <legend className="text-sm text-white/70 mb-1">Leg {legNumber}</legend>
+                <legend className="flex items-center gap-2 text-sm text-white/70 mb-1">
+                  <span>Leg {legNumber}</span>
+                  {typeof odds === "number" && isBelowMinimumOdds(odds) && (
+                    <span className="rounded bg-red-500/20 border border-red-500/50 px-2 py-0.5 text-xs font-semibold text-red-300">
+                      RED FLAG — below evens (odds {odds.toFixed(2)})
+                    </span>
+                  )}
+                </legend>
 
                 <label className="block text-sm text-white/70" htmlFor={`leg_${legNumber}_league`}>
                   League
@@ -286,7 +293,7 @@ export default async function ConfirmPage({
                       name={`leg_${legNumber}_odds`}
                       type="number"
                       step="0.01"
-                      min="2.00"
+                      min="0.01"
                       defaultValue={odds ?? ""}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     />

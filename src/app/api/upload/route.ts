@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { extractBetFromImage } from "@/lib/extract-bet";
-import { legIsComplete } from "@/lib/bet-schema";
+import { legIsComplete, isBelowMinimumOdds } from "@/lib/bet-schema";
 
 export const runtime = "nodejs";
 
@@ -132,6 +132,11 @@ export async function POST(request: Request) {
         continue;
       }
 
+      // Captured before the `await` below: TS drops narrowing from a
+      // user-defined type guard across an await boundary, so `leg.odds`
+      // would otherwise widen back to `number | null` afterwards.
+      const odds = leg.odds;
+
       const { error: legError } = await supabase.from("bet_legs").insert({
         bet_id: bet.id,
         leg_number: legNumber,
@@ -140,12 +145,15 @@ export async function POST(request: Request) {
         away_team: leg.away_team,
         match_datetime: leg.match_datetime,
         predicted_outcome: leg.predicted_outcome,
-        odds: leg.odds,
+        odds,
         status: "pending",
       });
 
       if (legError) {
         legWarnings.push(`Leg ${legNumber}: ${legError.message}`);
+      } else if (isBelowMinimumOdds(odds)) {
+        // Recorded as-is per SPEC.md §3.10 — never rejected, just flagged.
+        legWarnings.push(`Leg ${legNumber}: RED FLAG — odds ${odds.toFixed(2)} is below the 2.0 evens minimum.`);
       }
     }
 

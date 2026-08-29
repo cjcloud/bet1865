@@ -31,10 +31,34 @@ export const looseExtractionSchema = z.object({
 export type LooseLeg = z.infer<typeof looseLegSchema>;
 export type LooseExtraction = z.infer<typeof looseExtractionSchema>;
 
-// A leg is complete/valid enough to insert into bet_legs (which has a DB
-// check constraint odds >= 2.00 and NOT NULL on every field below) only if
-// every field parsed cleanly.
-export function legIsComplete(leg: LooseLeg): leg is Required<LooseLeg> {
+// The group's house rule (SPEC.md §3 point 3) wants every leg at evens or
+// better, but §3.10 is explicit: the app never rejects a leg for breaking
+// this — it records the real odds and red-flags it instead. This constant
+// drives that flag; it does NOT gate whether a leg can be saved.
+export const MINIMUM_ODDS = 2.0;
+
+export function isBelowMinimumOdds(odds: number): boolean {
+  return odds < MINIMUM_ODDS;
+}
+
+// `Required<LooseLeg>` only strips the `?` (optional) modifiers — it does
+// NOT strip `| null`, since every field here is `nullable().optional()`.
+// This is the actually-non-nullable shape a complete leg narrows to.
+export type CompleteLeg = {
+  leg_number?: number | null;
+  league: (typeof LEAGUE_CODES)[number];
+  home_team: string;
+  away_team: string;
+  match_datetime: string;
+  predicted_outcome: (typeof PREDICTED_OUTCOMES)[number];
+  odds: number;
+};
+
+// A leg is complete enough to insert into bet_legs (NOT NULL on every field
+// below, and odds must be a real positive price — see §3.10) only if every
+// field parsed cleanly. Being priced under evens does NOT make a leg
+// incomplete; only a missing/invalid field does.
+export function legIsComplete(leg: LooseLeg): leg is CompleteLeg {
   return (
     !!leg.league &&
     !!leg.home_team &&
@@ -42,6 +66,6 @@ export function legIsComplete(leg: LooseLeg): leg is Required<LooseLeg> {
     !!leg.match_datetime &&
     !!leg.predicted_outcome &&
     typeof leg.odds === "number" &&
-    leg.odds >= 2.0
+    leg.odds > 0
   );
 }

@@ -59,11 +59,13 @@ export async function updateBetAction(formData: FormData) {
       !matchDatetime ||
       !outcomeValid ||
       !Number.isFinite(oddsNum) ||
-      oddsNum < 2.0
+      oddsNum <= 0
     ) {
-      // Leave incomplete/invalid legs out rather than violating the DB's
-      // odds >= 2.00 / NOT NULL constraints (SPEC.md §5) — admin can finish
-      // these from the Admin page (Phase 6).
+      // Leave genuinely incomplete/invalid legs out rather than violating
+      // the DB's NOT NULL constraints (SPEC.md §5) — admin can finish these
+      // from the Admin page (Phase 6). Odds below the 2.0 evens minimum are
+      // NOT rejected here — SPEC.md §3.10 requires recording the real price
+      // and red-flagging it (bet_legs.below_minimum_odds), never dropping it.
       continue;
     }
 
