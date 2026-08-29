@@ -141,6 +141,17 @@ export type FixtureCandidate = {
   venue: string | null;
 };
 
+// English football seasons run Aug-May and API-Football's `season` param is
+// the year the season STARTED in (e.g. the 2026-27 season is `season=2026`).
+// A bet slip from Jan-Jun belongs to the season that started the previous
+// calendar year.
+function seasonForDate(dateStr: string): number {
+  const d = new Date(dateStr + "T00:00:00Z");
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth() + 1; // 1-12
+  return month >= 7 ? year : year - 1;
+}
+
 // SPEC.md §3.12: search window is the slip's bet date up to 7 days ahead
 // (a slip is for near-term games — typically ~4 days out, max 7).
 export async function findFixtureCandidates(params: {
@@ -151,7 +162,6 @@ export async function findFixtureCandidates(params: {
   const from = new Date(params.fromDate + "T00:00:00Z");
   const to = new Date(from);
   to.setUTCDate(to.getUTCDate() + 7);
-  const toDateStr = to.toISOString().slice(0, 10);
 
   const [homeTeamResolved, leagues] = await Promise.all([
     searchTeamId(params.homeTeam),
@@ -167,10 +177,15 @@ export async function findFixtureCandidates(params: {
     if (l.resolved) allowedLeagueIds.set(l.resolved.id, { slug: l.slug, label: l.label });
   }
 
+  // NOTE: API-Football's /fixtures `from`/`to` range params require `league`
+  // AND `season` to also be supplied ("The Season field is required."),
+  // which doesn't fit a search spanning several competitions at once.
+  // Fetching by `team` + `season` alone returns the team's whole-season
+  // fixture list instead, which we then filter to the 7-day window and
+  // opponent/league ourselves.
   const fixtures = await apiFootballGet<FixturesResponse>("/fixtures", {
     team: String(homeTeamResolved.id),
-    from: params.fromDate,
-    to: toDateStr,
+    season: String(seasonForDate(params.fromDate)),
   });
 
   const targetAway = normalizeTeamName(params.awayTeam);
@@ -179,6 +194,10 @@ export async function findFixtureCandidates(params: {
     .filter((f) => f.teams.home.id === homeTeamResolved.id)
     .filter((f) => normalizeTeamName(f.teams.away.name) === targetAway)
     .filter((f) => allowedLeagueIds.has(f.league.id))
+    .filter((f) => {
+      const kickoff = new Date(f.fixture.date);
+      return kickoff >= from && kickoff <= to;
+    })
     .map((f) => {
       const comp = allowedLeagueIds.get(f.league.id)!;
       return {
