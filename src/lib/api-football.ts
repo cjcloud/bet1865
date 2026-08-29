@@ -1,11 +1,12 @@
 // Client for api-football.com's direct dashboard API (NOT the RapidAPI
 // marketplace listing — different host/header). SPEC.md §3.12.
 //
-// NOT YET LIVE-TESTED: built from api-football.com's own published example
-// request and endpoint descriptions, since we don't have a live key in this
-// session to verify against. If fixture lookup errors or returns nothing
-// unexpectedly, the raw API response is surfaced (see callers) rather than
-// swallowed, so a parameter/shape mismatch is easy to spot and fix.
+// Live-tested and iterated against a real key: fixture lookup now runs in
+// 2 API calls per search (a team lookup + a fixtures pull), not 8 — see the
+// history below for what changed and why. If a fixture lookup errors or
+// returns nothing unexpectedly, the raw API response is surfaced (see
+// callers) rather than swallowed, so a parameter/shape mismatch is easy to
+// spot and fix.
 
 const BASE_URL = "https://v3.football.api-sports.io";
 
@@ -46,52 +47,28 @@ async function apiFootballGet<T>(path: string, params: Record<string, string>): 
 // two domestic cups — included in fixture SEARCH scope only, per §3.12, so
 // two same-week fixtures between the same teams (a league game and a cup
 // tie) can be told apart. A cup fixture has no matching `league_code`.
+//
+// apiFootballId is API-Football's own numeric league id for England — these
+// are stable, well-documented values on their side (not resolved by name on
+// every search: doing that via /leagues cost 6 extra API calls per lookup
+// and is what caused the "Too many requests" rate-limit error on live test).
+// If a competition ever stops matching (API-Football renumbers, which they
+// don't for established competitions), the raw fixtures response is still
+// surfaced on error so a mismatch is easy to spot.
 export const COMPETITIONS = [
-  { slug: "PL", label: "Premier League", searchTerm: "Premier League", type: "League", leagueCode: "PL" },
-  { slug: "CHAMPIONSHIP", label: "Championship", searchTerm: "Championship", type: "League", leagueCode: "CHAMPIONSHIP" },
-  { slug: "LEAGUE_ONE", label: "League One", searchTerm: "League 1", type: "League", leagueCode: "LEAGUE_ONE" },
-  { slug: "LEAGUE_TWO", label: "League Two", searchTerm: "League 2", type: "League", leagueCode: "LEAGUE_TWO" },
-  { slug: "FA_CUP", label: "FA Cup", searchTerm: "FA Cup", type: "Cup", leagueCode: null },
-  { slug: "EFL_CUP", label: "EFL Cup (Carabao Cup)", searchTerm: "EFL Cup", type: "Cup", leagueCode: null },
+  { slug: "PL", label: "Premier League", apiFootballId: 39, leagueCode: "PL" },
+  { slug: "CHAMPIONSHIP", label: "Championship", apiFootballId: 40, leagueCode: "CHAMPIONSHIP" },
+  { slug: "LEAGUE_ONE", label: "League One", apiFootballId: 41, leagueCode: "LEAGUE_ONE" },
+  { slug: "LEAGUE_TWO", label: "League Two", apiFootballId: 42, leagueCode: "LEAGUE_TWO" },
+  { slug: "FA_CUP", label: "FA Cup", apiFootballId: 45, leagueCode: null },
+  { slug: "EFL_CUP", label: "EFL Cup (Carabao Cup)", apiFootballId: 48, leagueCode: null },
 ] as const;
 
 export type CompetitionSlug = (typeof COMPETITIONS)[number]["slug"];
 
-type LeagueSearchResponse = {
-  response: Array<{
-    league: { id: number; name: string; type: string };
-    country: { name: string };
-    seasons: Array<{ year: number; current: boolean }>;
-  }>;
-};
-
-// Resolved fresh on every call rather than hardcoded/cached: league ids are
-// not something we've been able to verify against a live account in this
-// session, so name-based resolution (the API's own /leagues search) is
-// safer than a possibly-wrong guessed numeric id.
-async function resolveLeague(
-  competition: (typeof COMPETITIONS)[number]
-): Promise<{ id: number; season: number } | null> {
-  // NOTE: API-Football's /leagues endpoint rejects `search` combined with
-  // `country` ("The Country field cannot be used with the Search field."),
-  // so country filtering happens client-side on the search results instead.
-  const data = await apiFootballGet<LeagueSearchResponse>("/leagues", {
-    search: competition.searchTerm,
-  });
-
-  const english = data.response.filter((r) => r.country.name.toLowerCase() === "england");
-  const pool = english.length ? english : data.response;
-
-  const match = pool.find(
-    (r) => r.league.type.toLowerCase() === competition.type.toLowerCase()
-  ) ?? pool[0];
-  if (!match) return null;
-
-  const currentSeason = match.seasons.find((s) => s.current) ?? match.seasons[match.seasons.length - 1];
-  if (!currentSeason) return null;
-
-  return { id: match.league.id, season: currentSeason.year };
-}
+const ALLOWED_LEAGUE_IDS = new Map<number, { slug: CompetitionSlug; label: string }>(
+  COMPETITIONS.map((c) => [c.apiFootballId, { slug: c.slug, label: c.label }])
+);
 
 type TeamSearchResponse = {
   response: Array<{ team: { id: number; name: string }; venue?: { country?: string } }>;
@@ -106,9 +83,10 @@ function normalizeTeamName(name: string): string {
 }
 
 async function searchTeamId(name: string): Promise<{ id: number; name: string } | null> {
-  // Same /teams `search` + `country` combo restriction as /leagues (see
-  // resolveLeague) — search alone, then prefer an exact normalized-name
-  // match among the results rather than filtering by country server-side.
+  // API-Football's /teams endpoint rejects `search` combined with `country`
+  // ("The Country field cannot be used with the Search field."), so we
+  // search by name alone and prefer an exact normalized-name match among
+  // the results rather than filtering by country server-side.
   const data = await apiFootballGet<TeamSearchResponse>("/teams", {
     search: name,
   });
@@ -163,18 +141,10 @@ export async function findFixtureCandidates(params: {
   const to = new Date(from);
   to.setUTCDate(to.getUTCDate() + 7);
 
-  const [homeTeamResolved, leagues] = await Promise.all([
-    searchTeamId(params.homeTeam),
-    Promise.all(COMPETITIONS.map((c) => resolveLeague(c).then((r) => ({ slug: c.slug, label: c.label, resolved: r })))),
-  ]);
+  const homeTeamResolved = await searchTeamId(params.homeTeam);
 
   if (!homeTeamResolved) {
     throw new Error(`Could not find a team called "${params.homeTeam}" via API-Football.`);
-  }
-
-  const allowedLeagueIds = new Map<number, { slug: CompetitionSlug; label: string }>();
-  for (const l of leagues) {
-    if (l.resolved) allowedLeagueIds.set(l.resolved.id, { slug: l.slug, label: l.label });
   }
 
   // NOTE: API-Football's /fixtures `from`/`to` range params require `league`
@@ -193,13 +163,13 @@ export async function findFixtureCandidates(params: {
   return fixtures.response
     .filter((f) => f.teams.home.id === homeTeamResolved.id)
     .filter((f) => normalizeTeamName(f.teams.away.name) === targetAway)
-    .filter((f) => allowedLeagueIds.has(f.league.id))
+    .filter((f) => ALLOWED_LEAGUE_IDS.has(f.league.id))
     .filter((f) => {
       const kickoff = new Date(f.fixture.date);
       return kickoff >= from && kickoff <= to;
     })
     .map((f) => {
-      const comp = allowedLeagueIds.get(f.league.id)!;
+      const comp = ALLOWED_LEAGUE_IDS.get(f.league.id)!;
       return {
         externalFixtureId: String(f.fixture.id),
         competitionSlug: comp.slug,
