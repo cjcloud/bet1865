@@ -50,7 +50,7 @@ export default async function ConfirmPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { saved?: string; fixtureSearch?: string; fixtureError?: string };
+  searchParams: { saved?: string; fixtureSearch?: string; fixtureError?: string; legIssues?: string };
 }) {
   const supabase = createAdminClient();
 
@@ -159,19 +159,46 @@ export default async function ConfirmPage({
         automatic reading got wrong, then save.
       </p>
 
-      {searchParams.saved && (
-        <div className="rounded border border-accent/50 bg-accent/10 px-4 py-3 text-accent">
-          Saved. You can keep editing below, or you&apos;re done —{" "}
-          <Link href="/ranking" className="underline">
-            view the ranking
-          </Link>{" "}
-          or{" "}
-          <Link href="/upload" className="underline">
-            upload another slip
-          </Link>
-          .
-        </div>
-      )}
+      {(() => {
+        let legIssues: string[] = [];
+        if (searchParams.legIssues) {
+          try {
+            legIssues = JSON.parse(decodeURIComponent(searchParams.legIssues));
+          } catch {
+            legIssues = [];
+          }
+        }
+        if (legIssues.length > 0) {
+          return (
+            <div className="rounded border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300 space-y-2">
+              <p className="font-semibold">
+                Bet details saved, but not every leg could be — fix these and save again:
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                {legIssues.map((issue, i) => (
+                  <li key={i}>{issue}</li>
+                ))}
+              </ul>
+            </div>
+          );
+        }
+        if (searchParams.saved) {
+          return (
+            <div className="rounded border border-accent/50 bg-accent/10 px-4 py-3 text-accent">
+              Saved. You can keep editing below, or you&apos;re done —{" "}
+              <Link href="/ranking" className="underline">
+                view the ranking
+              </Link>{" "}
+              or{" "}
+              <Link href="/upload" className="underline">
+                upload another slip
+              </Link>
+              .
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {bet.admin_notes && (
         <div className="rounded border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">

@@ -32,6 +32,8 @@ export async function updateBetAction(formData: FormData) {
     .eq("id", betId);
 
   let anyLegSaved = false;
+  let savedLegCount = 0;
+  const legIssues: string[] = [];
 
   for (let legNumber = 1; legNumber <= 3; legNumber++) {
     const league = formData.get(`leg_${legNumber}_league`);
@@ -70,6 +72,21 @@ export async function updateBetAction(formData: FormData) {
       // from the Admin page (Phase 6). Odds below the 2.0 evens minimum are
       // NOT rejected here — SPEC.md §3.10 requires recording the real price
       // and red-flagging it (bet_legs.below_minimum_odds), never dropping it.
+      //
+      // Report exactly which field(s) are missing/invalid so the confirm
+      // screen can tell the uploader why nothing was saved instead of
+      // silently dropping the leg — a native <input type="datetime-local">
+      // resets to an empty value if any of its date/time segments is left
+      // incomplete, which was previously indistinguishable from "never
+      // touched this leg" and produced a misleading "Saved" banner.
+      const missing: string[] = [];
+      if (!leagueValid) missing.push("league");
+      if (typeof homeTeam !== "string" || !homeTeam.trim()) missing.push("home team");
+      if (typeof awayTeam !== "string" || !awayTeam.trim()) missing.push("away team");
+      if (typeof matchDatetime !== "string" || !matchDatetime) missing.push("kick-off date/time");
+      if (!outcomeValid) missing.push("predicted outcome");
+      if (!Number.isFinite(oddsNum) || oddsNum <= 0) missing.push("odds");
+      legIssues.push(`Leg ${legNumber}: ${missing.join(", ")} missing or invalid`);
       continue;
     }
 
@@ -89,6 +106,7 @@ export async function updateBetAction(formData: FormData) {
       { onConflict: "bet_id,leg_number" }
     );
     anyLegSaved = true;
+    savedLegCount++;
 
     // Leg is now fully saved to bet_legs — any pending fixture candidates
     // for it are no longer needed as a fallback source (page.tsx prefers
@@ -102,11 +120,16 @@ export async function updateBetAction(formData: FormData) {
 
   // SPEC.md: after a successful upload+confirm, take the uploader to the
   // read-only view of what they just saved, with an "Upload a Bet Slip"
-  // button — not back to the edit form.
-  if (anyLegSaved) {
+  // button — not back to the edit form. Only do this once all 3 legs are
+  // actually saved; a partial save (some legs still missing a field) stays
+  // on the confirm screen with legIssues explaining exactly what's left,
+  // rather than sending the uploader to a view that looks "done" while legs
+  // are silently missing.
+  if (savedLegCount === 3) {
     redirect(`/bets/${betId}`);
   }
-  redirect(`/upload/confirm/${betId}?saved=1`);
+  const issuesParam = legIssues.length ? `&legIssues=${encodeURIComponent(JSON.stringify(legIssues))}` : "";
+  redirect(`/upload/confirm/${betId}?saved=1${issuesParam}`);
 }
 
 // SPEC.md §3.12: searches API-Football for fixtures between the two named
