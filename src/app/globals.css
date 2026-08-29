@@ -10,3 +10,19 @@ body {
   background-color: #111111;
   color: #f5f5f5;
 }
+
+/* `color-scheme: dark` above should make the browser paint native form
+   controls (including a <select>'s open dropdown list) in a dark palette,
+   but on Windows Chrome/Edge the popup list still rendered with a light
+   grey background and low-contrast text - the OS-level popup doesn't
+   reliably inherit the page's color-scheme. Styling <option> directly is
+   more broadly respected across Chromium/Firefox for the closed native
+   popup than color-scheme alone. */
+select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: #1a1a1a;
+  color: #f5f5f5;
+}
