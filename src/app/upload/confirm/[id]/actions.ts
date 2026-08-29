@@ -116,12 +116,18 @@ export async function updateBetAction(formData: FormData) {
 // render as a pick-list — never auto-applied, even when there's only one
 // match, so the uploader/admin always confirms before it overwrites a
 // manually-typed date.
-export async function lookupFixtureAction(formData: FormData) {
+export async function lookupFixtureAction(legNumber: number, formData: FormData) {
+  // legNumber arrives via .bind(null, legNumber) on the button's formAction
+  // in page.tsx, NOT as a form field. A submit button's own name/value pair
+  // is not reliably included in the FormData a Next.js server action
+  // receives (React intercepts the submit rather than doing a native
+  // HTMLFormElement.requestSubmit(submitter)) — that was the original bug
+  // here: leg_number came through as null, Number(null) is 0 (not NaN, so
+  // the "missing" check didn't catch it), and everything cascaded from
+  // there. .bind() is the documented, reliable way to pass a per-row id
+  // into a server action.
   const betId = formData.get("bet_id");
-  const legNumberRaw = formData.get("leg_number");
-
   if (typeof betId !== "string" || !betId) throw new Error("Missing bet id");
-  const legNumber = Number(legNumberRaw);
   if (!Number.isFinite(legNumber)) throw new Error("Missing leg number");
 
   // This action is wired up as a second submit button (`formAction`) on the
@@ -196,21 +202,17 @@ export async function lookupFixtureAction(formData: FormData) {
 // bet_legs directly — the uploader still hits the main Save button, which
 // also carries predicted_outcome/odds that this narrower action doesn't
 // have.
-export async function chooseFixtureAction(formData: FormData) {
+export async function chooseFixtureAction(
+  legNumber: number,
+  externalFixtureId: string,
+  formData: FormData
+) {
+  // Both identifiers arrive via .bind(null, legNumber, externalFixtureId) —
+  // see the comment in lookupFixtureAction for why, not as form fields.
   const betId = formData.get("bet_id");
-  // Also a second submit button on the shared form — a single button can
-  // only carry one name/value pair, so leg number + fixture id are packed
-  // together as "<legNumber>:<externalFixtureId>" and split back out here.
-  const candidateKey = formData.get("candidate_key");
-
   if (typeof betId !== "string" || !betId) throw new Error("Missing bet id");
-  if (typeof candidateKey !== "string" || !candidateKey.includes(":")) {
-    throw new Error("Missing fixture choice");
-  }
-  const [legNumberStr, externalFixtureId] = candidateKey.split(":");
-  const legNumber = Number(legNumberStr);
   if (!Number.isFinite(legNumber) || !externalFixtureId) {
-    throw new Error("Malformed fixture choice");
+    throw new Error("Missing fixture choice");
   }
 
   const supabase = createAdminClient();

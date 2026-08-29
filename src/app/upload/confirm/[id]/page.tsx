@@ -339,10 +339,7 @@ export default async function ConfirmPage({
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="submit"
-                    formAction={lookupFixtureAction}
-                    name="leg_number"
-                    value={legNumber}
-                    formNoValidate
+                    formAction={lookupFixtureAction.bind(null, legNumber)}
                     className="min-h-[44px] rounded border border-accent/60 px-3 text-sm font-medium text-accent hover:bg-accent/10"
                   >
                     Find fixture (next 7 days)
@@ -381,10 +378,7 @@ export default async function ConfirmPage({
                         </div>
                         <button
                           type="submit"
-                          formAction={chooseFixtureAction}
-                          name="candidate_key"
-                          value={`${legNumber}:${c.external_fixture_id}`}
-                          formNoValidate
+                          formAction={chooseFixtureAction.bind(null, legNumber, c.external_fixture_id)}
                           className="min-h-[36px] shrink-0 rounded bg-accent px-3 text-xs font-semibold text-black"
                         >
                           Use this fixture
