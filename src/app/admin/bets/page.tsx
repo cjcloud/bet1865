@@ -135,6 +135,12 @@ export default async function AdminBetsPage({
               >
                 {STATUS_LABELS[bet.status] ?? bet.status}
               </span>
+              <Link
+                href={`/admin/bets/${bet.id}`}
+                className="min-h-[36px] shrink-0 flex items-center rounded border border-accent/60 px-3 text-sm font-medium text-accent hover:bg-accent/10"
+              >
+                Settle
+              </Link>
               <DeleteBetButton
                 betId={bet.id}
                 label={`${playerNameById.get(bet.player_id) ?? "Unknown"} · ${new Date(

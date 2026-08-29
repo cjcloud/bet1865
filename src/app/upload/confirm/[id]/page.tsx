@@ -95,10 +95,6 @@ export default async function ConfirmPage({
     return fromAi?.[key] ?? null;
   }
 
-  function legExternalFixtureId(legNumber: number): string {
-    return legByNumber.get(legNumber)?.external_fixture_id ?? "";
-  }
-
   // Carries the WHOLE form's last-submitted state across a "Set to nearest
   // Saturday, 3pm" redirect (see the long comment on setNearestSaturdayAction
   // in actions.ts for why this exists) - every field the browser last had,
@@ -344,12 +340,6 @@ export default async function ConfirmPage({
                   defaultValue={kickoffDefaultValue}
                   className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                 />
-                <input
-                  type="hidden"
-                  name={`leg_${legNumber}_external_fixture_id`}
-                  value={legExternalFixtureId(legNumber)}
-                />
-
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="submit"

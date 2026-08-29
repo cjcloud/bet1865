@@ -42,7 +42,6 @@ export async function updateBetAction(formData: FormData) {
     const matchDatetime = formData.get(`leg_${legNumber}_match_datetime`);
     const predictedOutcome = formData.get(`leg_${legNumber}_predicted_outcome`);
     const odds = formData.get(`leg_${legNumber}_odds`);
-    const externalFixtureId = formData.get(`leg_${legNumber}_external_fixture_id`);
 
     const hasAnyValue = [league, homeTeam, awayTeam, matchDatetime, predictedOutcome, odds].some(
       (v) => typeof v === "string" && v.trim() !== ""
@@ -107,8 +106,6 @@ export async function updateBetAction(formData: FormData) {
         match_datetime: new Date(matchDatetime).toISOString(),
         predicted_outcome: predictedOutcome,
         odds: oddsNum,
-        external_fixture_id:
-          typeof externalFixtureId === "string" && externalFixtureId ? externalFixtureId : null,
       },
       { onConflict: "bet_id,leg_number" }
     );
