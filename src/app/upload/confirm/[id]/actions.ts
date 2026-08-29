@@ -90,7 +90,14 @@ export async function updateBetAction(formData: FormData) {
       continue;
     }
 
-    await supabase.from("bet_legs").upsert(
+    // IMPORTANT: check the write result. This previously assumed the
+    // upsert succeeded just because the leg passed field validation above
+    // - if Supabase rejected the row (schema mismatch, constraint, RLS),
+    // savedLegCount/anyLegSaved still got incremented and the confirm
+    // screen reported success (or no warning at all) while bet_legs
+    // silently ended up with zero rows. Now a DB-level failure is reported
+    // through legIssues exactly like a validation failure.
+    const { error: legWriteError } = await supabase.from("bet_legs").upsert(
       {
         bet_id: betId,
         leg_number: legNumber,
@@ -105,6 +112,12 @@ export async function updateBetAction(formData: FormData) {
       },
       { onConflict: "bet_id,leg_number" }
     );
+
+    if (legWriteError) {
+      legIssues.push(`Leg ${legNumber}: failed to save (${legWriteError.message})`);
+      continue;
+    }
+
     anyLegSaved = true;
     savedLegCount++;
 
