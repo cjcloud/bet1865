@@ -11,6 +11,14 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // See the matching comment in supabase-admin.ts - without this,
+      // Next.js's server fetch cache can serve a stale GET response
+      // (e.g. a bets/bet_legs read from moments after a row was created,
+      // before it had its final data) indefinitely on this route.
+      global: {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+          fetch(input, { ...init, cache: "no-store" }),
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();
