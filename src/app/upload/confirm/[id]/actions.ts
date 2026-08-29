@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { LEAGUE_CODES, PREDICTED_OUTCOMES } from "@/lib/bet-schema";
-import { findFixtureCandidates } from "@/lib/api-football";
+import { nearestSaturdayAt3pm } from "@/lib/nearest-saturday";
 
 // Saves the uploader's corrections from the confirm screen (SPEC.md §6.1 #2:
 // "a lightweight 'does this look right?' confirm step"). Uses the admin
@@ -120,15 +120,6 @@ export async function updateBetAction(formData: FormData) {
 
     anyLegSaved = true;
     savedLegCount++;
-
-    // Leg is now fully saved to bet_legs — any pending fixture candidates
-    // for it are no longer needed as a fallback source (page.tsx prefers
-    // the saved row anyway, but clear them so stale options don't linger).
-    await supabase
-      .from("bet_leg_fixture_candidates")
-      .delete()
-      .eq("bet_id", betId)
-      .eq("leg_number", legNumber);
   }
 
   // SPEC.md: after a successful upload+confirm, take the uploader to the
@@ -145,128 +136,30 @@ export async function updateBetAction(formData: FormData) {
   redirect(`/upload/confirm/${betId}?saved=1${issuesParam}`);
 }
 
-// SPEC.md §3.12: searches API-Football for fixtures between the two named
-// teams within 7 days of the bet's date (across the 4 pyramid divisions +
-// FA Cup + EFL Cup, so a same-week league/cup pairing can be told apart).
-// Results are staged in bet_leg_fixture_candidates for the confirm page to
-// render as a pick-list — never auto-applied, even when there's only one
-// match, so the uploader/admin always confirms before it overwrites a
-// manually-typed date.
-export async function lookupFixtureAction(legNumber: number, formData: FormData) {
+// SPEC.md §3.12a: automated fixture lookup (API-Football) is parked — the
+// group's matches are overwhelmingly played at the traditional Saturday
+// 3pm slot, so this gives the uploader/admin a one-click starting guess
+// instead of typing a date by hand, while staying purely a suggestion: it
+// never writes to bet_legs, only pre-fills the kick-off input via a
+// redirect param, and the admin can freely retype it before hitting Save
+// if the actual fixture was an evening kick-off, a Sunday, moved for TV,
+// etc.
+export async function setNearestSaturdayAction(legNumber: number, formData: FormData) {
   // legNumber arrives via .bind(null, legNumber) on the button's formAction
-  // in page.tsx, NOT as a form field. A submit button's own name/value pair
-  // is not reliably included in the FormData a Next.js server action
-  // receives (React intercepts the submit rather than doing a native
-  // HTMLFormElement.requestSubmit(submitter)) — that was the original bug
-  // here: leg_number came through as null, Number(null) is 0 (not NaN, so
-  // the "missing" check didn't catch it), and everything cascaded from
-  // there. .bind() is the documented, reliable way to pass a per-row id
-  // into a server action.
+  // in page.tsx, not as a form field — see the long-standing comment
+  // history on this file for why (a submit button's own name/value pair
+  // isn't reliably present in the FormData a server action receives).
   const betId = formData.get("bet_id");
   if (typeof betId !== "string" || !betId) throw new Error("Missing bet id");
   if (!Number.isFinite(legNumber)) throw new Error("Missing leg number");
 
-  // This action is wired up as a second submit button (`formAction`) on the
-  // SAME form as the main Save button, purely so it sees the live-typed
-  // team names without any nested <form> or client JS — so the field names
-  // here are the leg-specific ones from that shared form, not generic ones.
-  const homeTeam = formData.get(`leg_${legNumber}_home_team`);
-  const awayTeam = formData.get(`leg_${legNumber}_away_team`);
-  const betDate = formData.get("bet_date");
+  const betDateRaw = formData.get("bet_date");
+  const betDate =
+    typeof betDateRaw === "string" && betDateRaw ? betDateRaw : new Date().toISOString().slice(0, 10);
 
-  const supabase = createAdminClient();
+  const suggested = nearestSaturdayAt3pm(betDate);
 
-  // Always clear first: a re-search should replace whatever was there,
-  // including a previously-chosen candidate — the uploader is explicitly
-  // asking to search again.
-  await supabase
-    .from("bet_leg_fixture_candidates")
-    .delete()
-    .eq("bet_id", betId)
-    .eq("leg_number", legNumber);
-
-  if (
-    typeof homeTeam !== "string" ||
-    !homeTeam.trim() ||
-    typeof awayTeam !== "string" ||
-    !awayTeam.trim() ||
-    typeof betDate !== "string" ||
-    !betDate
-  ) {
-    redirect(`/upload/confirm/${betId}?fixtureSearch=${legNumber}&fixtureError=missing-fields`);
-  }
-
-  // IMPORTANT: next/navigation's redirect() works by throwing, so it must
-  // never be called from inside this try block — a catch(err) here would
-  // otherwise swallow a successful redirect and misreport it as a fetch
-  // error. Capture the outcome instead and redirect once, after the block.
-  let errorMessage: string | null = null;
-  try {
-    const candidates = await findFixtureCandidates({
-      homeTeam: homeTeam.trim(),
-      awayTeam: awayTeam.trim(),
-      fromDate: betDate,
-    });
-
-    if (candidates.length) {
-      await supabase.from("bet_leg_fixture_candidates").insert(
-        candidates.map((c) => ({
-          bet_id: betId,
-          leg_number: legNumber,
-          external_fixture_id: c.externalFixtureId,
-          competition_slug: c.competitionSlug,
-          competition_label: c.competitionLabel,
-          home_team: c.homeTeam,
-          away_team: c.awayTeam,
-          kickoff: c.kickoffIso,
-          venue: c.venue,
-        }))
-      );
-    }
-  } catch (err) {
-    errorMessage = err instanceof Error ? err.message : "Unknown error";
-  }
-
-  if (errorMessage) {
-    redirect(`/upload/confirm/${betId}?fixtureSearch=${legNumber}&fixtureError=${encodeURIComponent(errorMessage)}`);
-  }
-  redirect(`/upload/confirm/${betId}?fixtureSearch=${legNumber}`);
+  redirect(
+    `/upload/confirm/${betId}?suggestLeg=${legNumber}&suggestDatetime=${encodeURIComponent(suggested)}`
+  );
 }
-
-// Marks one candidate as chosen (and drops its siblings) so the confirm
-// page's pre-fill logic picks it up for that leg. Does NOT write to
-// bet_legs directly — the uploader still hits the main Save button, which
-// also carries predicted_outcome/odds that this narrower action doesn't
-// have.
-export async function chooseFixtureAction(
-  legNumber: number,
-  externalFixtureId: string,
-  formData: FormData
-) {
-  // Both identifiers arrive via .bind(null, legNumber, externalFixtureId) —
-  // see the comment in lookupFixtureAction for why, not as form fields.
-  const betId = formData.get("bet_id");
-  if (typeof betId !== "string" || !betId) throw new Error("Missing bet id");
-  if (!Number.isFinite(legNumber) || !externalFixtureId) {
-    throw new Error("Missing fixture choice");
-  }
-
-  const supabase = createAdminClient();
-
-  await supabase
-    .from("bet_leg_fixture_candidates")
-    .delete()
-    .eq("bet_id", betId)
-    .eq("leg_number", legNumber)
-    .neq("external_fixture_id", externalFixtureId);
-
-  await supabase
-    .from("bet_leg_fixture_candidates")
-    .update({ chosen: true })
-    .eq("bet_id", betId)
-    .eq("leg_number", legNumber)
-    .eq("external_fixture_id", externalFixtureId);
-
-  redirect(`/upload/confirm/${betId}`);
-}
-

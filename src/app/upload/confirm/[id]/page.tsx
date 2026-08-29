@@ -2,8 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { LEAGUE_CODES, PREDICTED_OUTCOMES, isBelowMinimumOdds } from "@/lib/bet-schema";
-import { competitionLeagueCode, type CompetitionSlug } from "@/lib/api-football";
-import { updateBetAction, lookupFixtureAction, chooseFixtureAction } from "./actions";
+import { updateBetAction, setNearestSaturdayAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,18 +29,6 @@ function toLocalDatetimeInputValue(iso: string | null | undefined) {
   )}`;
 }
 
-function formatKickoff(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 // The confirm screen from SPEC.md §6.1 #2: extracted fields next to the slip
 // image, editable before final save. Reached right after /api/upload inserts
 // the bet as pending_review.
@@ -50,7 +37,12 @@ export default async function ConfirmPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { saved?: string; fixtureSearch?: string; fixtureError?: string; legIssues?: string };
+  searchParams: {
+    saved?: string;
+    legIssues?: string;
+    suggestLeg?: string;
+    suggestDatetime?: string;
+  };
 }) {
   const supabase = createAdminClient();
 
@@ -62,12 +54,6 @@ export default async function ConfirmPage({
     .select("*")
     .eq("bet_id", params.id)
     .order("leg_number");
-
-  const { data: fixtureCandidates } = await supabase
-    .from("bet_leg_fixture_candidates")
-    .select("*")
-    .eq("bet_id", params.id)
-    .order("kickoff");
 
   const { data: player } = await supabase.from("players").select("name").eq("id", bet.player_id).single();
   const { data: bookmaker } = await supabase
@@ -82,30 +68,12 @@ export default async function ConfirmPage({
 
   const legByNumber = new Map((legs ?? []).map((l) => [l.leg_number, l]));
 
-  type FixtureCandidateRow = {
-    external_fixture_id: string;
-    competition_slug: string;
-    competition_label: string;
-    home_team: string;
-    away_team: string;
-    kickoff: string;
-    venue: string | null;
-    chosen: boolean;
-  };
-  const candidatesByLeg = new Map<number, FixtureCandidateRow[]>();
-  for (const c of (fixtureCandidates ?? []) as unknown as (FixtureCandidateRow & { leg_number: number })[]) {
-    const arr = candidatesByLeg.get(c.leg_number) ?? [];
-    arr.push(c);
-    candidatesByLeg.set(c.leg_number, arr);
-  }
-
   // A leg that failed validation (e.g. missing kick-off time) is never
   // written to bet_legs (SPEC.md §5's NOT NULL constraints would reject it),
-  // but the AI may still have read the teams/league/odds correctly, or a
-  // fixture may since have been looked up and chosen (SPEC.md §3.12).
-  // Preference order: saved bet_legs row > a chosen fixture candidate > the
-  // raw AI extraction — so the form is always pre-filled with the best
-  // available source, and only genuine gaps need filling in by hand.
+  // but the AI may still have read the teams/league/odds correctly.
+  // Preference order: saved bet_legs row > the raw AI extraction — so the
+  // form is always pre-filled with the best available source, and only
+  // genuine gaps need filling in by hand.
   type AiLeg = {
     leg_number?: number | null;
     league?: string | null;
@@ -119,36 +87,16 @@ export default async function ConfirmPage({
     (bet.ai_raw_response as { parsed?: { legs?: AiLeg[] } } | null)?.parsed?.legs ?? [];
   const aiLegByNumber = new Map(aiLegs.map((l, i) => [l.leg_number ?? i + 1, l]));
 
-  function chosenCandidate(legNumber: number) {
-    return candidatesByLeg.get(legNumber)?.find((c) => c.chosen) ?? null;
-  }
-
   function legField<K extends keyof AiLeg>(legNumber: number, key: K): AiLeg[K] | null {
     const saved = legByNumber.get(legNumber);
     if (saved && saved[key] != null) return saved[key];
-
-    const chosen = chosenCandidate(legNumber);
-    if (chosen) {
-      if (key === "league") {
-        const mapped = competitionLeagueCode(chosen.competition_slug as CompetitionSlug);
-        if (mapped) return mapped as AiLeg[K];
-      } else if (key === "home_team") {
-        return chosen.home_team as AiLeg[K];
-      } else if (key === "away_team") {
-        return chosen.away_team as AiLeg[K];
-      } else if (key === "match_datetime") {
-        return chosen.kickoff as AiLeg[K];
-      }
-    }
 
     const fromAi = aiLegByNumber.get(legNumber);
     return fromAi?.[key] ?? null;
   }
 
   function legExternalFixtureId(legNumber: number): string {
-    const saved = legByNumber.get(legNumber);
-    if (saved?.external_fixture_id) return saved.external_fixture_id;
-    return chosenCandidate(legNumber)?.external_fixture_id ?? "";
+    return legByNumber.get(legNumber)?.external_fixture_id ?? "";
   }
 
   return (
@@ -231,10 +179,9 @@ export default async function ConfirmPage({
           )}
         </div>
 
-        {/* One form, multiple submit buttons via formAction (SPEC.md §3.12):
-            "Save", "Find fixture" per leg, and "Use this fixture" per
-            candidate all read/write the SAME live-typed field values —
-            no nested forms, no client JS needed. */}
+        {/* One form, multiple submit buttons via formAction: "Save" and,
+            per leg, "Set to nearest Saturday, 3pm" both read/write the SAME
+            live-typed field values — no nested forms, no client JS needed. */}
         <form action={updateBetAction} className="space-y-6">
           <input type="hidden" name="bet_id" value={bet.id} />
 
@@ -289,8 +236,17 @@ export default async function ConfirmPage({
             const matchDatetime = legField(legNumber, "match_datetime");
             const predictedOutcome = legField(legNumber, "predicted_outcome");
             const odds = legField(legNumber, "odds");
-            const pendingCandidates = (candidatesByLeg.get(legNumber) ?? []).filter((c) => !c.chosen);
-            const justSearched = searchParams.fixtureSearch === String(legNumber);
+
+            // A "Set to nearest Saturday, 3pm" click redirects back here
+            // with this leg's suggested kick-off in the query string — it's
+            // only ever a starting guess (SPEC.md §3.12a: automated lookup
+            // is parked, most fixtures are Saturday 3pm anyway), never
+            // written to bet_legs until the admin actually hits Save, and
+            // takes priority over whatever was there before so re-clicking
+            // it always resets to the fresh suggestion.
+            const suggestedDatetime =
+              searchParams.suggestLeg === String(legNumber) ? searchParams.suggestDatetime ?? "" : "";
+            const kickoffDefaultValue = suggestedDatetime || toLocalDatetimeInputValue(matchDatetime);
 
             return (
               <fieldset key={legNumber} className="space-y-3 border-t border-white/10 pt-4">
@@ -351,10 +307,11 @@ export default async function ConfirmPage({
                   Kick-off
                 </label>
                 <input
+                  key={kickoffDefaultValue}
                   id={`leg_${legNumber}_match_datetime`}
                   name={`leg_${legNumber}_match_datetime`}
                   type="datetime-local"
-                  defaultValue={toLocalDatetimeInputValue(matchDatetime)}
+                  defaultValue={kickoffDefaultValue}
                   className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                 />
                 <input
@@ -366,54 +323,17 @@ export default async function ConfirmPage({
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="submit"
-                    formAction={lookupFixtureAction.bind(null, legNumber)}
+                    formAction={setNearestSaturdayAction.bind(null, legNumber)}
                     className="min-h-[44px] rounded border border-accent/60 px-3 text-sm font-medium text-accent hover:bg-accent/10"
                   >
-                    Find fixture (next 7 days)
+                    Set to nearest Saturday, 3pm
                   </button>
-                  {justSearched && !searchParams.fixtureError && pendingCandidates.length === 0 && (
-                    <span className="text-xs text-white/50">No fixture found in that window — enter it manually above.</span>
+                  {suggestedDatetime && (
+                    <span className="text-xs text-white/50">
+                      Just a starting guess — check it against the actual fixture and adjust if needed.
+                    </span>
                   )}
                 </div>
-
-                {justSearched && searchParams.fixtureError && (
-                  <p className="text-xs text-red-400">
-                    Fixture lookup failed: {searchParams.fixtureError}
-                  </p>
-                )}
-
-                {pendingCandidates.length > 0 && (
-                  <div className="rounded border border-accent/40 bg-accent/5 p-3 space-y-2">
-                    <p className="text-xs text-white/70">
-                      {pendingCandidates.length > 1
-                        ? "More than one match fits — which one is this?"
-                        : "Found a match — use it?"}
-                    </p>
-                    {pendingCandidates.map((c) => (
-                      <div
-                        key={c.external_fixture_id}
-                        className="flex items-center justify-between gap-3 rounded bg-black/30 px-3 py-2"
-                      >
-                        <div className="text-sm">
-                          <div className="text-white">
-                            {c.home_team} v {c.away_team}
-                          </div>
-                          <div className="text-white/60 text-xs">
-                            {c.competition_label} · {formatKickoff(c.kickoff)}
-                            {c.venue ? ` · ${c.venue}` : ""}
-                          </div>
-                        </div>
-                        <button
-                          type="submit"
-                          formAction={chooseFixtureAction.bind(null, legNumber, c.external_fixture_id)}
-                          className="min-h-[36px] shrink-0 rounded bg-accent px-3 text-xs font-semibold text-black"
-                        >
-                          Use this fixture
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
