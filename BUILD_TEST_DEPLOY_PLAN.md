@@ -16,8 +16,9 @@ re-deriving requirements.
    PRs → preview URLs).
 6. Set environment variables in Vercel (and a local `.env.local`, gitignored):
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `RAPIDAPI_KEY` (API-Football),
-   `ADMIN_EMAIL`.
+   `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`,
+   `API_FOOTBALL_KEY` (api-football.com direct key — renamed from the
+   originally-planned `RAPIDAPI_KEY`, see Phase 3/open decision #4), `ADMIN_EMAIL`.
 7. Copy `SPECIFICATION.md` into the repo as `SPEC.md`; add a short
    `CLAUDE.md`/`AGENTS.md` pointing every future coding session at it first.
 8. Add `public/logo-betcnt.png` from the supplied logo image.
@@ -99,14 +100,45 @@ or silently dropped — see SPEC.md §3.10.
 - Debug view added to the confirm screen showing Claude's raw extraction JSON —
   remove before real launch.
 
+**Pulled forward from Phase 4, at the user's request (29 Aug 2026):**
+- Fixture lookup per leg on the confirm screen — `src/lib/api-football.ts` +
+  `lookupFixtureAction`/`chooseFixtureAction` in `actions.ts` — searches
+  api-football.com (direct dashboard key, `API_FOOTBALL_KEY` env var — see
+  README.md) for a real fixture and lets the uploader/admin confirm it to
+  auto-fill league/kick-off/`external_fixture_id`. Search window and
+  disambiguation rules are SPEC.md §3.12. **Not yet live-tested** — built from
+  the provider's own published example request rather than a full endpoint
+  reference (their docs site is JS-rendered and couldn't be fetched directly),
+  so treat the first real search as the actual test; errors surface verbatim
+  in the UI rather than failing silently, to make any parameter mismatch easy
+  to spot and fix.
+- **View Slips** (`/bets`, `/bets/[id]`) — pulled forward from Phase 5's spirit
+  (browsing what's been recorded) since the user wanted it as the landing
+  page right after a successful upload, with an "Upload a Bet Slip" button —
+  see SPEC.md §6.1. Not the full Ranking page (still Phase 5); just a
+  browse-by-player list and a read-only per-slip view.
+- New migration `0004_fixture_lookup.sql` (`bet_leg_fixture_candidates`).
+- Env var renamed from the originally-planned `RAPIDAPI_KEY` to
+  `API_FOOTBALL_KEY` — the user has a direct api-football.com dashboard key,
+  not a RapidAPI marketplace subscription, which uses a different host/header.
+  Open decision #4 below is now resolved accordingly.
+
 ## Phase 4 — Result lookup & settlement engine (2–3 days)
 
-1. Build an API-Football client (server-side only, key never exposed to browser),
-   with a `fixtures_cache` table to stay inside the free-tier rate limit.
-2. Fixture matching: for each pending `bet_leg`, look up the fixture by team names +
-   date/league; store `external_fixture_id` once matched (fuzzy-match team names
-   against a small alias table, since bookmaker slips and API team-name spellings
-   often differ — e.g. "Man City" vs "Manchester City").
+1. ~~Build an API-Football client...~~ Partially done — `src/lib/api-football.ts`
+   (see above) covers league/team resolution and fixture search; settlement
+   will need to extend it with the `/fixtures/events` goal-timeline call (§3.9)
+   and the `fixtures_cache` table below.
+1b. Add a `fixtures_cache` table to stay inside the free-tier rate limit —
+   not yet built; the fixture-lookup client above doesn't cache; low volume
+   makes that acceptable for now but revisit before Phase 4 settlement runs
+   at higher frequency.
+2. ~~Fixture matching: for each pending `bet_leg`, look up the fixture...~~
+   Mostly covered by the confirm-screen fixture lookup above, which already
+   stores `external_fixture_id` once a candidate is chosen — remaining work
+   here is the *automatic* re-check for legs still unresolved by settlement
+   time, and the team-name alias table for cases the live search can't
+   resolve (e.g. "Man City" vs "Manchester City" mismatches).
 3. For finished fixtures backing a Betfair-sourced leg, pull `/fixtures/events` and
    populate `fixture_goal_events`, tagging each goal `is_after_89_59` per §3.9 step 1.
 4. Implement the §3.9 goal-event algorithm as a small pure function — given a
@@ -213,5 +245,9 @@ first live trial week.
    link (Phase 2, complete).
 3. Bookmaker seed list beyond Betfair (William Hill, Bet365, Sky Bet, Paddy Power,
    Ladbrokes, Coral, …) — confirm which ones the group actually uses.
-4. Confirm API-Football (RapidAPI) plan/key is provisioned before Phase 4 starts,
-   since the 100 req/day free-tier ceiling shapes the caching design.
+4. ~~Confirm API-Football (RapidAPI) plan/key is provisioned before Phase 4
+   starts~~ Decided: a direct api-football.com dashboard key (`API_FOOTBALL_KEY`),
+   provisioned and already in use for the Phase 3 fixture-lookup feature —
+   pulled forward ahead of Phase 4. Confirm the plan's rate limit once real
+   usage volume is known, so the still-unbuilt `fixtures_cache` table's design
+   can target the actual ceiling rather than an assumed 100 req/day.

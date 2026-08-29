@@ -22,7 +22,7 @@ npm run dev
 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel + `.env.local` | Secret type is fine — server-only, never sent to the browser |
 | `ANTHROPIC_API_KEY` | Vercel + `.env.local` | Used by `/api/upload` for slip vision extraction |
 | `ANTHROPIC_MODEL` | Vercel + `.env.local` | **Must be set to a current vision-capable Claude model id** — not hardcoded in code on purpose, since model ids change over time. Upload will fail with a clear error if this is missing. |
-| `RAPIDAPI_KEY` | Vercel + `.env.local` | Not used yet — needed from Phase 4 (result lookup) onward |
+| `API_FOOTBALL_KEY` | Vercel + `.env.local` | api-football.com's own direct dashboard key (not RapidAPI) — used by the confirm screen's fixture lookup (§3.12) and, from Phase 4, settlement |
 
 **Vercel "Secret" vs "Config" env vars**: a Secret-type variable becomes write-only
 after saving and can't later be converted to Config — if you ever can't verify a
@@ -32,9 +32,14 @@ fighting the greyed-out toggle.
 ## Database
 
 Schema lives in `supabase/migrations/0001_init.sql`, seed data in
-`supabase/seed.sql`, and the private betslip storage bucket in
-`supabase/migrations/0002_storage.sql`. Apply all three via the Supabase SQL editor
-(in order) or the Supabase CLI.
+`supabase/seed.sql`. Then, in order:
+- `0002_storage.sql` — private betslip storage bucket
+- `0003_odds_flag.sql` — removes the DB-level odds >= 2.00 floor; adds the
+  generated `below_minimum_odds` red-flag column (§3.10)
+- `0004_fixture_lookup.sql` — `bet_leg_fixture_candidates` staging table for
+  fixture-lookup disambiguation (§3.12)
+
+Apply all of these via the Supabase SQL editor (in order) or the Supabase CLI.
 
 ## Admin auth (one-time setup)
 

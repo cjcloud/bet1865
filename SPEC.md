@@ -177,6 +177,39 @@ silently halves the true odds and was an early bug in this app's extraction prom
 corrected once found. Odds already printed in decimal format are used as-is, no
 conversion needed.
 
+### 3.12 Fixture lookup — auto-populating league/kick-off from API-Football
+
+A slip photo rarely shows the exact kick-off date/time clearly (or the AI misses
+it), but that same detail can usually be looked up: on the confirm screen, a "Find
+fixture" action per leg searches **API-Football** (the account's direct
+api-football.com dashboard key — `x-apisports-key` header, not the RapidAPI
+marketplace listing) for a real fixture between the two named teams and, if found,
+lets the uploader/admin confirm it to auto-fill league, kick-off, and
+`external_fixture_id` (the id later reused for settlement, Phase 4).
+
+- **Search window**: a slip is for a near-term game — typically no more than 4 days
+  ahead, at most 7. The search covers the 7 days starting from the bet's recorded
+  date (not "today"), inclusive.
+- **Competition scope**: the 4 pyramid divisions (Premier League, Championship,
+  League One, League Two) **plus the FA Cup and EFL Cup (Carabao Cup)**. The cups are
+  in scope for *searching* only, to correctly tell apart same-week fixtures between
+  the same two clubs (a league game and a cup tie) — a leg still only counts as a
+  valid bet leg if it's one of the 4 pyramid divisions per §3 point 2; a cup fixture
+  selected here leaves the leg's `league` unset for the admin to resolve, since it
+  doesn't map onto that enum.
+- **Disambiguation**: if the search returns more than one candidate fixture for the
+  same team pairing and home/away orientation (the league-vs-cup case above, most
+  commonly), every candidate is shown — competition, kick-off, venue — and the
+  uploader/admin picks the one they meant. A match is never auto-applied, even when
+  the search returns exactly one candidate; it's always presented for a one-click
+  confirm rather than silently written in, so a manually-typed date is never
+  overwritten by surprise.
+- **No match**: if nothing is found in the window, the leg is left for manual entry
+  as before — this isn't treated as an error, since not every match may be indexed
+  yet that far out, or the team names may need a small correction first.
+- Candidates are staged in `bet_leg_fixture_candidates` between the search and the
+  choice (see §5) and cleared once the leg is actually saved.
+
 ## 4. Scoring — "betc\*nt" Ranking
 
 Every player starts each season at **0 / 0**. Two scores are tracked per player:
@@ -299,6 +332,24 @@ create table admin_audit_log (
   changed_by    text not null default 'admin',
   changed_at    timestamptz not null default now()
 );
+
+-- Staging area for fixture-lookup disambiguation (§3.12). Cleared once a
+-- leg is saved; not a permanent record of anything.
+create table bet_leg_fixture_candidates (
+  id                  uuid primary key default gen_random_uuid(),
+  bet_id              uuid not null references bets(id) on delete cascade,
+  leg_number          smallint not null check (leg_number between 1 and 3),
+  external_fixture_id text not null,
+  competition_slug    text not null,   -- PL | CHAMPIONSHIP | LEAGUE_ONE | LEAGUE_TWO | FA_CUP | EFL_CUP
+  competition_label   text not null,
+  home_team           text not null,
+  away_team           text not null,
+  kickoff             timestamptz not null,
+  venue               text,
+  chosen              boolean not null default false,
+  created_at          timestamptz not null default now(),
+  unique (bet_id, leg_number, external_fixture_id)
+);
 ```
 
 A `player_rankings` view (or nightly materialized view) derives the primary/secondary
@@ -320,8 +371,13 @@ always recomputed from settled data.
   converted from fractional to decimal where the slip shows fractional pricing —
   see §3.11's formula and worked examples; this is a common real-slip case, not an
   edge case, since most UK bookmaker slips print fractional odds.
+- **Fixture lookup (confirm screen, §3.12)**: uses the account's **api-football.com
+  direct dashboard key** (`API_FOOTBALL_KEY` env var, `x-apisports-key` header — not
+  the RapidAPI marketplace listing) to find the real fixture for a leg and offer it
+  as a one-click fill-in, with disambiguation when more than one candidate matches.
+  This is the same provider/account the settlement job below will use in Phase 4.
 - **Result lookup / settlement**: a scheduled job (Vercel Cron hitting an API route, or
-  a Supabase scheduled Edge Function) queries **API-Football (RapidAPI)** for fixtures
+  a Supabase scheduled Edge Function) queries **API-Football** for fixtures
   across the four divisions, matches them to `bet_legs` by team names + date, pulls
   each fixture's **goal-event timeline** (the `/fixtures/events` endpoint) into
   `fixture_goal_events`, and runs the deterministic algorithm in §3.9 to resolve each
@@ -349,13 +405,21 @@ always recomputed from settled data.
 2. **Upload** (`/upload`) — player picks their name from the fixed dropdown, picks the
    bookmaker (or types a new one), uploads a slip screenshot. The app shows the
    AI-extracted fields for a quick eyeball-confirm before saving (players can fix
-   obvious OCR mistakes here too, e.g. wrong team name) — full corrective power stays
-   with admin, but a lightweight "does this look right?" confirm step avoids obviously
-   bad data going in.
-3. **Ranking** (`/` or `/ranking`) — the betc\*nt leaderboard: table of all 6 players
+   obvious OCR mistakes here too, e.g. wrong team name), with an optional fixture
+   lookup per leg (§3.12) to fill in kick-off/league from a real match — full
+   corrective power stays with admin, but a lightweight "does this look right?"
+   confirm step avoids obviously bad data going in. On successful save, the uploader
+   lands on that slip's page in **View Slips** (below) with an "Upload a Bet Slip"
+   button to go again.
+3. **View Slips** (`/bets`) — every uploaded slip, browsable by player, each opening
+   to a read-only view of that slip (image + extracted legs, with the same red-flag
+   badge as the confirm screen for any leg priced under evens). This is where a
+   successful upload lands you (see above), and where anyone can check back on what's
+   been recorded so far.
+4. **Ranking** (`/` or `/ranking`) — the betc\*nt leaderboard: table of all 6 players
    sorted per §4, plus a per-player detail view (bet history, win rate, current
    streak) and simple charts (primary score over time, legs-won distribution).
-4. **Admin** (`/admin`, auth-required) — full CRUD on bets/legs/players/bookmakers;
+5. **Admin** (`/admin`, auth-required) — full CRUD on bets/legs/players/bookmakers;
    re-run or manually trigger the settlement job; override any parsed or settled
    field with an audit trail (`admin_audit_log`); view raw AI extraction JSON
    alongside the slip image side-by-side for corrections; manage the fixed player and

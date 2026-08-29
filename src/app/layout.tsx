@@ -30,6 +30,7 @@ export default function RootLayout({
             <nav className="hidden items-center gap-x-6 text-sm font-medium text-white/80 sm:flex">
               <a href="/" className="hover:text-accent">Ranking</a>
               <a href="/upload" className="hover:text-accent">Upload Slip</a>
+              <a href="/bets" className="hover:text-accent">View Slips</a>
               <a href="/rules" className="hover:text-accent">Rules</a>
               <a href="/admin" className="hover:text-accent">Admin</a>
             </nav>
