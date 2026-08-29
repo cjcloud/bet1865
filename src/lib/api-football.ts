@@ -72,14 +72,19 @@ type LeagueSearchResponse = {
 async function resolveLeague(
   competition: (typeof COMPETITIONS)[number]
 ): Promise<{ id: number; season: number } | null> {
+  // NOTE: API-Football's /leagues endpoint rejects `search` combined with
+  // `country` ("The Country field cannot be used with the Search field."),
+  // so country filtering happens client-side on the search results instead.
   const data = await apiFootballGet<LeagueSearchResponse>("/leagues", {
     search: competition.searchTerm,
-    country: "England",
   });
 
-  const match = data.response.find(
+  const english = data.response.filter((r) => r.country.name.toLowerCase() === "england");
+  const pool = english.length ? english : data.response;
+
+  const match = pool.find(
     (r) => r.league.type.toLowerCase() === competition.type.toLowerCase()
-  ) ?? data.response[0];
+  ) ?? pool[0];
   if (!match) return null;
 
   const currentSeason = match.seasons.find((s) => s.current) ?? match.seasons[match.seasons.length - 1];
@@ -89,7 +94,7 @@ async function resolveLeague(
 }
 
 type TeamSearchResponse = {
-  response: Array<{ team: { id: number; name: string } }>;
+  response: Array<{ team: { id: number; name: string }; venue?: { country?: string } }>;
 };
 
 function normalizeTeamName(name: string): string {
@@ -101,9 +106,11 @@ function normalizeTeamName(name: string): string {
 }
 
 async function searchTeamId(name: string): Promise<{ id: number; name: string } | null> {
+  // Same /teams `search` + `country` combo restriction as /leagues (see
+  // resolveLeague) — search alone, then prefer an exact normalized-name
+  // match among the results rather than filtering by country server-side.
   const data = await apiFootballGet<TeamSearchResponse>("/teams", {
     search: name,
-    country: "England",
   });
   if (!data.response.length) return null;
 
