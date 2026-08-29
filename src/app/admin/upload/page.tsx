@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase-server";
 import UploadForm from "./UploadForm";
 
-// Upload (SPEC.md §6.1 #2). Public page, no auth — see SPEC.md §6 "Auth".
+// Upload (SPEC.md §6.1 #2) — admin-only. Players post their slip on
+// WhatsApp; the admin uploads it here. Protected by middleware.ts
+// (everything under /admin/* requires the admin auth session).
 export const dynamic = "force-dynamic";
 
 export default async function UploadPage() {

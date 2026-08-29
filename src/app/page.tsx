@@ -14,16 +14,22 @@ interface RankingRow {
 }
 
 // betc*nt leaderboard (SPEC.md §4, §6.1 #4). player_rankings is a Postgres
-// view over bets/bet_legs, always derived live — no manual recompute step,
-// and it already sorts primary asc / secondary desc and excludes any bet
-// reconciled as voided_full_refund (§3.7a) from both scores and the
-// bets-played/win-rate denominator (migration 0005).
+// view over bets/bet_legs, always derived live — no manual recompute step —
+// and already excludes any bet reconciled as voided_full_refund (§3.7a)
+// from both scores and the bets-played/win-rate denominator (migration
+// 0005). Sort order is set explicitly here (not left to the view's own
+// default) so it's obvious at a glance what this page shows: the biggest
+// betc*nt — most COTW's — sits at the top, with Prediction Score breaking a
+// tie the other way round for the same reason (fewest leg wins among tied
+// players is the more shameful showing).
 export default async function RankingPage() {
   const supabase = createClient();
 
   const { data: rankings } = await supabase
     .from("player_rankings")
     .select("player_id, name, primary_score, secondary_score, bets_settled, bets_won")
+    .order("primary_score", { ascending: false })
+    .order("secondary_score", { ascending: true })
     .returns<RankingRow[]>();
 
   const rows = rankings ?? [];
@@ -34,7 +40,8 @@ export default async function RankingPage() {
       <div>
         <h1 className="text-2xl font-bold text-accent">betc*nt Ranking</h1>
         <p className="text-white/70">
-          Lowest betc*nt count wins; leg wins break ties. See{" "}
+          Most betc*nt count sits at the top — that&apos;s your number of COTW&apos;s. Prediction
+          Score breaks a tie. See{" "}
           <Link href="/rules" className="underline hover:text-accent">
             the Rules
           </Link>{" "}
@@ -46,13 +53,16 @@ export default async function RankingPage() {
         <p className="text-white/50 text-sm">No players found.</p>
       ) : (
         <div className="overflow-x-auto rounded border border-white/10 bg-surface">
-          <table className="w-full min-w-[560px] text-left text-sm">
+          <table className="w-full min-w-[620px] text-left text-sm">
             <thead>
               <tr className="border-b border-white/10 text-white/50">
                 <th className="px-4 py-3 font-medium">#</th>
                 <th className="px-4 py-3 font-medium">Player</th>
-                <th className="px-4 py-3 font-medium text-right">betc*nt</th>
-                <th className="px-4 py-3 font-medium text-right">Score</th>
+                <th className="px-4 py-3 font-medium text-right">
+                  betc*nt
+                  <div className="text-[10px] font-normal normal-case text-white/40">(COTW&apos;s)</div>
+                </th>
+                <th className="px-4 py-3 font-medium text-right">Prediction Score</th>
                 <th className="px-4 py-3 font-medium text-right">Played</th>
                 <th className="px-4 py-3 font-medium text-right">Win rate</th>
               </tr>

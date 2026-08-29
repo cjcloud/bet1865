@@ -20,7 +20,7 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_URL` | Vercel + `.env.local` | Config type in Vercel, not Secret (see note below) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Vercel + `.env.local` | Config type in Vercel, not Secret |
 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel + `.env.local` | Secret type is fine — server-only, never sent to the browser |
-| `ANTHROPIC_API_KEY` | Vercel + `.env.local` | Used by `/api/upload` for slip vision extraction |
+| `ANTHROPIC_API_KEY` | Vercel + `.env.local` | Used by `/api/admin/upload` for slip vision extraction |
 | `ANTHROPIC_MODEL` | Vercel + `.env.local` | **Must be set to a current vision-capable Claude model id** — not hardcoded in code on purpose, since model ids change over time. Upload will fail with a clear error if this is missing. |
 | `API_FOOTBALL_KEY` | Vercel + `.env.local` | api-football.com's own direct dashboard key (not RapidAPI) — used by the confirm screen's fixture lookup (§3.12) and, from Phase 4, settlement |
 
@@ -64,13 +64,18 @@ exceeded") — fine for solo admin use, but if you're testing repeatedly, consid
 configuring a custom SMTP provider under **Authentication → Emails → SMTP Settings**
 (e.g. Resend's free tier).
 
-## Uploading a slip (Phase 3)
+## Uploading a slip (Phase 3, admin-only)
 
-`/upload` — pick the player and bookmaker, take/choose a photo of the slip. The
-server route (`src/app/api/upload/route.ts`) stores the image in the private
-`betslips` Storage bucket, calls Claude vision (`src/lib/extract-bet.ts`) to read the
-bet date, stake, return, and the three legs, then inserts a `pending_review` bet.
-Any leg that didn't parse cleanly (missing field, odds below 2.0, bad JSON) is left
-out rather than guessed at, and noted in `admin_notes`. You're then sent to
-`/upload/confirm/[id]` to check/fix the extracted fields against the slip image
-before it's done — full correction tooling for admin comes in Phase 6.
+Players don't upload their own slips — they post the photo in the group's WhatsApp
+chat, and the admin uploads it. `/admin/upload` (signed-in admin only, same as the
+rest of `/admin/*`) — pick the player and bookmaker, take/choose a photo of the
+slip. The server route (`src/app/api/admin/upload/route.ts`, also admin-only —
+`middleware.ts` returns a 401 instead of a redirect for this one since it's called
+via `fetch`, not a page navigation) stores the image in the private `betslips`
+Storage bucket, calls Claude vision (`src/lib/extract-bet.ts`) to read the bet
+date, stake, return, and the three legs, then inserts a `pending_review` bet. Any
+leg that didn't parse cleanly (missing field, odds below 2.0, bad JSON) is left out
+rather than guessed at, and noted in `admin_notes`. You're then sent to
+`/admin/upload/confirm/[id]` to check/fix the extracted fields against the slip
+image before it's done — full correction tooling for admin beyond settlement
+fields comes in Phase 6.

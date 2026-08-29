@@ -32,9 +32,17 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isProtectedAdminRoute = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  const isProtectedAdminPage = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  const isProtectedAdminApi = pathname.startsWith("/api/admin");
 
-  if (isProtectedAdminRoute && !user) {
+  if ((isProtectedAdminPage || isProtectedAdminApi) && !user) {
+    if (isProtectedAdminApi) {
+      // An API route is called via fetch() from client code (e.g.
+      // UploadForm.tsx), which expects a JSON response - a redirect would
+      // just surface as an opaque network/parse error there instead of a
+      // clear "you're not signed in".
+      return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/admin/login";
     return NextResponse.redirect(url);
@@ -44,5 +52,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  // Admin pages (upload, settlement, correction tooling — SPEC.md §6.1 #5)
+  // and the admin-only API routes they call (currently just the slip-upload
+  // endpoint) are both hidden from general users and require the single
+  // pre-created admin account to be signed in (SPEC.md §6 "Auth"). Everything
+  // else (Ranking, View Slips, Rules) stays public/unauthenticated.
+  matcher: ["/admin/:path*", "/api/admin/:path*"],
 };

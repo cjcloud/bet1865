@@ -100,9 +100,14 @@ export default async function AdminBetDetailPage({ params }: { params: { id: str
             })}
           </p>
         </div>
-        <Link href="/admin/bets" className="text-sm text-white/50 underline">
-          Back to all bets
-        </Link>
+        <div className="flex flex-wrap items-center gap-4">
+          <Link href={`/admin/upload/confirm/${bet.id}`} className="text-sm text-white/50 underline">
+            Edit details
+          </Link>
+          <Link href="/admin/bets" className="text-sm text-white/50 underline">
+            Back to all bets
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded border border-white/10 bg-surface px-4 py-3">

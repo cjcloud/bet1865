@@ -30,8 +30,9 @@ function toLocalDatetimeInputValue(iso: string | null | undefined) {
 }
 
 // The confirm screen from SPEC.md §6.1 #2: extracted fields next to the slip
-// image, editable before final save. Reached right after /api/upload inserts
-// the bet as pending_review.
+// image, editable before final save. Admin-only (see middleware.ts) — reached
+// right after /api/admin/upload inserts the bet as pending_review, or from
+// Admin's bet detail page when re-editing an already-saved bet.
 export default async function ConfirmPage({
   params,
   searchParams,
@@ -161,11 +162,11 @@ export default async function ConfirmPage({
           return (
             <div className="rounded border border-accent/50 bg-accent/10 px-4 py-3 text-accent">
               Saved. You can keep editing below, or you&apos;re done —{" "}
-              <Link href="/ranking" className="underline">
+              <Link href="/" className="underline">
                 view the ranking
               </Link>{" "}
               or{" "}
-              <Link href="/upload" className="underline">
+              <Link href="/admin/upload" className="underline">
                 upload another slip
               </Link>
               .

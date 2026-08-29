@@ -8,11 +8,14 @@ export const runtime = "nodejs";
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB, generous for a phone photo
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 
-// Handles Upload (SPEC.md §6.1 #2): stores the slip image in the private
-// `betslips` bucket, runs Claude vision extraction, and inserts the bet as
-// `pending_review` with whatever fields parsed cleanly — never silently
-// dropped, per SPEC.md §6.2 error handling. The confirm screen
-// (/upload/confirm/[id]) then lets the uploader eyeball/fix it.
+// Handles Upload (SPEC.md §6.1 #2), admin-only (see middleware.ts — this
+// route now lives under /api/admin/*, protected the same as /admin/* pages,
+// with a 401 JSON response instead of a redirect for an unauthenticated
+// fetch): stores the slip image in the private `betslips` bucket, runs
+// Claude vision extraction, and inserts the bet as `pending_review` with
+// whatever fields parsed cleanly — never silently dropped, per SPEC.md
+// §6.2 error handling. The confirm screen (/admin/upload/confirm/[id])
+// then lets the admin eyeball/fix it.
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();

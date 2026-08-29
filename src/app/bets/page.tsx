@@ -19,9 +19,10 @@ const STATUS_STYLES: Record<string, string> = {
   void: "bg-white/10 text-white/50 border-white/20",
 };
 
-// Browse uploaded slips by player. Public, no auth — same as Upload/Rules/
-// Ranking (SPEC.md §6 "Auth"). Reached from the nav, or from the "Upload a
-// Bet Slip" flow (SPEC.md §3.12/upload flow: land here after saving).
+// Browse uploaded slips by player. Public, no auth — same as Rules/Ranking
+// (SPEC.md §6 "Auth"). Uploading is admin-only (players post their slip on
+// WhatsApp and the admin uploads it via /admin/upload), so this page is
+// read-only for a general visitor.
 export default async function BetsPage({
   searchParams,
 }: {
@@ -129,15 +130,6 @@ export default async function BetsPage({
           ))}
         </div>
       )}
-
-      <div className="pt-2">
-        <Link
-          href="/upload"
-          className="inline-flex min-h-[44px] items-center rounded bg-accent px-4 font-semibold text-black"
-        >
-          Upload a Bet Slip
-        </Link>
-      </div>
     </div>
   );
 }

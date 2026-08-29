@@ -56,12 +56,13 @@ export default function RulesPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-white">Scoring — the betc*nt table</h2>
         <p className="text-sm text-white/70">
-          Every player starts at 0/0. Two scores are tracked, and the table sorts on the first,
-          breaking ties with the second:
+          Every player starts at 0/0. Two scores are tracked. The Ranking table lists players by
+          betc*nt count, highest first — that&apos;s your number of COTW&apos;s (Cunt Of The
+          Week) — with Prediction Score breaking a tie.
         </p>
 
         <div className="rounded border border-white/10 bg-surface p-4">
-          <h3 className="font-medium text-white">betc*nt count (lower is better)</h3>
+          <h3 className="font-medium text-white">betc*nt count (your number of COTW&apos;s)</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/70 marker:text-accent">
             <li>+1 every time a recorded bet ultimately loses.</li>
             <li>Unaffected by wins.</li>
@@ -72,8 +73,9 @@ export default function RulesPage() {
         </div>
 
         <div className="rounded border border-white/10 bg-surface p-4">
-          <h3 className="font-medium text-white">Score (tiebreaker / form)</h3>
+          <h3 className="font-medium text-white">Prediction Score (tiebreaker)</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/70 marker:text-accent">
+            <li>Breaks a tie between players level on betc*nt count.</li>
             <li>+1 for every individual leg that wins, across all bets (0-3 per bet).</li>
             <li>
               +2 bonus on any bet where all three legs win — a clean-sweep bet is worth +5 in
@@ -92,7 +94,7 @@ export default function RulesPage() {
                 <th className="px-4 py-2 font-medium">Legs won</th>
                 <th className="px-4 py-2 font-medium">Result</th>
                 <th className="px-4 py-2 font-medium text-right">betc*nt</th>
-                <th className="px-4 py-2 font-medium text-right">Score</th>
+                <th className="px-4 py-2 font-medium text-right">Prediction Score</th>
               </tr>
             </thead>
             <tbody className="text-white/80">
@@ -127,7 +129,7 @@ export default function RulesPage() {
             </tbody>
           </table>
           <p className="px-4 pb-3 pt-2 text-xs text-white/50">
-            Totals after 4 bets: betc*nt count = 2, score = 12.
+            Totals after 4 bets: betc*nt count = 2, Prediction Score = 12.
           </p>
         </div>
       </section>

@@ -127,10 +127,10 @@ export async function updateBetAction(formData: FormData) {
   // rather than sending the uploader to a view that looks "done" while legs
   // are silently missing.
   if (savedLegCount === 3) {
-    redirect(`/bets/${betId}`);
+    redirect(`/admin/bets/${betId}`);
   }
   const issuesParam = legIssues.length ? `&legIssues=${encodeURIComponent(JSON.stringify(legIssues))}` : "";
-  redirect(`/upload/confirm/${betId}?saved=1${issuesParam}`);
+  redirect(`/admin/upload/confirm/${betId}?saved=1${issuesParam}`);
 }
 
 // SPEC.md §3.12a: automated fixture lookup (API-Football) is parked — the
@@ -190,6 +190,6 @@ export async function setNearestSaturdayAction(legNumber: number, formData: Form
   };
 
   redirect(
-    `/upload/confirm/${betId}?suggestLeg=${legNumber}&formState=${encodeURIComponent(JSON.stringify(formState))}`
+    `/admin/upload/confirm/${betId}?suggestLeg=${legNumber}&formState=${encodeURIComponent(JSON.stringify(formState))}`
   );
 }

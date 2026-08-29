@@ -53,14 +53,14 @@ export default function UploadForm({
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Something went wrong uploading the slip.");
         setSubmitting(false);
         return;
       }
-      router.push(`/upload/confirm/${data.betId}`);
+      router.push(`/admin/upload/confirm/${data.betId}`);
     } catch {
       setError("Network error — please check your connection and try again.");
       setSubmitting(false);

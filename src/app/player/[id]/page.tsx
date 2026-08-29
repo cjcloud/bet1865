@@ -159,6 +159,15 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
 
   const buckets = legsWonDistribution(scoredBets.map((b) => legsWonByBet.get(b.id) ?? 0));
 
+  // Mirrors the player_rankings view's secondary_score formula exactly
+  // (SPEC.md §4): +1 per leg won across scored bets, +2 bonus per clean
+  // sweep (3/3). Computed locally from the same scoredBets/legsWonByBet
+  // already built above rather than a second round trip to the view.
+  const predictionScore = scoredBets.reduce((sum, b) => {
+    const legsWon = legsWonByBet.get(b.id) ?? 0;
+    return sum + legsWon + (legsWon === 3 ? 2 : 0);
+  }, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -168,7 +177,7 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div className="rounded border border-white/10 bg-surface px-3 py-2">
           <div className="text-xs text-white/50">Bets played</div>
           <div className="text-lg font-semibold text-white">{betsSettled}</div>
@@ -184,10 +193,14 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
           </div>
         </div>
         <div className="rounded border border-white/10 bg-surface px-3 py-2">
-          <div className="text-xs text-white/50">betc*nt count</div>
+          <div className="text-xs text-white/50">betc*nt (COTW&apos;s)</div>
           <div className="text-lg font-semibold text-white">
             {cumulativePrimary[cumulativePrimary.length - 1] ?? 0}
           </div>
+        </div>
+        <div className="rounded border border-white/10 bg-surface px-3 py-2">
+          <div className="text-xs text-white/50">Prediction Score</div>
+          <div className="text-lg font-semibold text-white">{predictionScore}</div>
         </div>
       </div>
 

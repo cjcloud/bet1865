@@ -2,17 +2,21 @@
 
 import { useState } from "react";
 
-const LINKS = [
+const PUBLIC_LINKS = [
   { href: "/", label: "Ranking" },
-  { href: "/upload", label: "Upload Slip" },
   { href: "/bets", label: "View Slips" },
   { href: "/rules", label: "Rules" },
-  { href: "/admin", label: "Admin" },
 ];
 
+// Admin is only ever shown once RootLayout (server-side) has confirmed an
+// admin session exists — see the comment on RootLayout in layout.tsx for why
+// it's hidden entirely rather than just link-protected.
+const ADMIN_LINK = { href: "/admin", label: "Admin" };
+
 // Collapses the nav to a hamburger below the `sm` breakpoint per SPEC.md §6.2.
-export default function MobileNav() {
+export default function MobileNav({ isAdmin }: { isAdmin: boolean }) {
   const [open, setOpen] = useState(false);
+  const links = isAdmin ? [...PUBLIC_LINKS, ADMIN_LINK] : PUBLIC_LINKS;
 
   return (
     <div className="sm:hidden">
@@ -37,7 +41,7 @@ export default function MobileNav() {
       {open && (
         <nav className="absolute inset-x-0 top-full border-b border-white/10 bg-surface px-4 pb-4 pt-2 shadow-lg">
           <ul className="flex flex-col divide-y divide-white/10">
-            {LINKS.map((link) => (
+            {links.map((link) => (
               <li key={link.href}>
                 <a
                   href={link.href}

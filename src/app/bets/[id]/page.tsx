@@ -33,10 +33,11 @@ const LEG_STATUS_LABELS: Record<string, string> = {
   void: "Void",
 };
 
-// Read-only view of one uploaded slip (SPEC.md — reached automatically right
-// after a successful upload+confirm, and from /bets when browsing by
-// player). Slip image needs the admin client: the betslips Storage bucket
-// is service-role-only (SPEC.md §6.2), so signed URLs can't be minted with
+// Read-only view of one uploaded slip for general visitors (SPEC.md §6.1
+// #3 — reached from /bets when browsing by player). Editing/settlement is
+// admin-only, under /admin, so this page has no edit/upload links. Slip
+// image needs the admin client: the betslips Storage bucket is
+// service-role-only (SPEC.md §6.2), so signed URLs can't be minted with
 // the public anon client.
 export default async function BetDetailPage({ params }: { params: { id: string } }) {
   const supabase = createAdminClient();
@@ -112,11 +113,7 @@ export default async function BetDetailPage({ params }: { params: { id: string }
 
           {(legs ?? []).length === 0 && (
             <p className="text-sm text-yellow-300">
-              No legs saved yet for this bet —{" "}
-              <Link href={`/upload/confirm/${bet.id}`} className="underline">
-                finish the confirm step
-              </Link>
-              .
+              No legs saved for this bet yet — check back once the admin has finished entering it.
             </p>
           )}
 
@@ -155,19 +152,10 @@ export default async function BetDetailPage({ params }: { params: { id: string }
             </div>
           ))}
 
-          <Link href={`/upload/confirm/${bet.id}`} className="inline-block text-sm text-white/50 underline">
-            Edit details
-          </Link>
         </div>
       </div>
 
-      <div className="pt-2 flex flex-wrap gap-3">
-        <Link
-          href="/upload"
-          className="inline-flex min-h-[44px] items-center rounded bg-accent px-4 font-semibold text-black"
-        >
-          Upload a Bet Slip
-        </Link>
+      <div className="pt-2">
         <Link
           href="/bets"
           className="inline-flex min-h-[44px] items-center rounded border border-white/20 px-4 font-medium text-white/80 hover:border-white/40"
