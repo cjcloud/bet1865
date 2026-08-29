@@ -144,6 +144,19 @@ export async function updateBetAction(formData: FormData) {
 // redirect param, and the admin can freely retype it before hitting Save
 // if the actual fixture was an evening kick-off, a Sunday, moved for TV,
 // etc.
+//
+// IMPORTANT: this button's click is a full form submit -> full page
+// redirect -> fresh server render, same as every other formAction on this
+// page. Next.js does not preserve unsaved input values across that
+// round-trip on its own - only what the redirect URL and the DB/AI data
+// carry back get shown. Clicking leg 2's button after already clicking
+// leg 1's therefore used to blow away leg 1's freshly-set value (and any
+// other unsaved edit on the page), because only the just-clicked leg's new
+// value ever made it into the redirect. To fix that, this reads EVERY
+// field currently in the form - not just the leg being changed - and
+// carries the whole lot forward as one `formState` param, so page.tsx can
+// re-render every field exactly as the browser last had it, with only the
+// clicked leg's kick-off actually changed.
 export async function setNearestSaturdayAction(legNumber: number, formData: FormData) {
   // legNumber arrives via .bind(null, legNumber) on the button's formAction
   // in page.tsx, not as a form field — see the long-standing comment
@@ -153,13 +166,33 @@ export async function setNearestSaturdayAction(legNumber: number, formData: Form
   if (typeof betId !== "string" || !betId) throw new Error("Missing bet id");
   if (!Number.isFinite(legNumber)) throw new Error("Missing leg number");
 
-  const betDateRaw = formData.get("bet_date");
-  const betDate =
-    typeof betDateRaw === "string" && betDateRaw ? betDateRaw : new Date().toISOString().slice(0, 10);
+  const str = (v: FormDataEntryValue | null) => (typeof v === "string" ? v : "");
 
-  const suggested = nearestSaturdayAt3pm(betDate);
+  const betDate = str(formData.get("bet_date")) || new Date().toISOString().slice(0, 10);
+
+  const legs: Record<number, Record<string, string>> = {};
+  for (let n = 1; n <= 3; n++) {
+    legs[n] = {
+      league: str(formData.get(`leg_${n}_league`)),
+      home_team: str(formData.get(`leg_${n}_home_team`)),
+      away_team: str(formData.get(`leg_${n}_away_team`)),
+      match_datetime: str(formData.get(`leg_${n}_match_datetime`)),
+      predicted_outcome: str(formData.get(`leg_${n}_predicted_outcome`)),
+      odds: str(formData.get(`leg_${n}_odds`)),
+    };
+  }
+  // Only this one leg's kick-off actually changes - everything else in
+  // `legs` is exactly what was already sitting in the form.
+  legs[legNumber].match_datetime = nearestSaturdayAt3pm(betDate);
+
+  const formState = {
+    bet_date: betDate,
+    stake: str(formData.get("stake")),
+    slip_return_amount: str(formData.get("slip_return_amount")),
+    legs,
+  };
 
   redirect(
-    `/upload/confirm/${betId}?suggestLeg=${legNumber}&suggestDatetime=${encodeURIComponent(suggested)}`
+    `/upload/confirm/${betId}?suggestLeg=${legNumber}&formState=${encodeURIComponent(JSON.stringify(formState))}`
   );
 }

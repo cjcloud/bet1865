@@ -41,7 +41,7 @@ export default async function ConfirmPage({
     saved?: string;
     legIssues?: string;
     suggestLeg?: string;
-    suggestDatetime?: string;
+    formState?: string;
   };
 }) {
   const supabase = createAdminClient();
@@ -97,6 +97,37 @@ export default async function ConfirmPage({
 
   function legExternalFixtureId(legNumber: number): string {
     return legByNumber.get(legNumber)?.external_fixture_id ?? "";
+  }
+
+  // Carries the WHOLE form's last-submitted state across a "Set to nearest
+  // Saturday, 3pm" redirect (see the long comment on setNearestSaturdayAction
+  // in actions.ts for why this exists) - every field the browser last had,
+  // not just the one leg that button just changed. Takes priority over the
+  // DB/AI fallbacks in legField() whenever present, since it reflects
+  // something the uploader is actively mid-edit on this page right now.
+  type FormStateLeg = {
+    league?: string;
+    home_team?: string;
+    away_team?: string;
+    match_datetime?: string;
+    predicted_outcome?: string;
+    odds?: string;
+  };
+  let formState: {
+    bet_date?: string;
+    stake?: string;
+    slip_return_amount?: string;
+    legs?: Record<string, FormStateLeg>;
+  } = {};
+  if (searchParams.formState) {
+    try {
+      formState = JSON.parse(decodeURIComponent(searchParams.formState));
+    } catch {
+      formState = {};
+    }
+  }
+  function formLeg(legNumber: number): FormStateLeg | undefined {
+    return formState.legs?.[String(legNumber)];
   }
 
   return (
@@ -194,7 +225,7 @@ export default async function ConfirmPage({
               id="bet_date"
               name="bet_date"
               type="date"
-              defaultValue={bet.bet_date}
+              defaultValue={formState.bet_date || bet.bet_date}
               className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
             />
             <div className="grid grid-cols-2 gap-3">
@@ -208,7 +239,7 @@ export default async function ConfirmPage({
                   type="number"
                   step="0.01"
                   min="0"
-                  defaultValue={bet.stake}
+                  defaultValue={formState.stake || bet.stake}
                   className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                 />
               </div>
@@ -222,7 +253,7 @@ export default async function ConfirmPage({
                   type="number"
                   step="0.01"
                   min="0"
-                  defaultValue={bet.slip_return_amount}
+                  defaultValue={formState.slip_return_amount || bet.slip_return_amount}
                   className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                 />
               </div>
@@ -230,31 +261,30 @@ export default async function ConfirmPage({
           </fieldset>
 
           {[1, 2, 3].map((legNumber) => {
-            const league = legField(legNumber, "league");
-            const homeTeam = legField(legNumber, "home_team");
-            const awayTeam = legField(legNumber, "away_team");
-            const matchDatetime = legField(legNumber, "match_datetime");
-            const predictedOutcome = legField(legNumber, "predicted_outcome");
-            const odds = legField(legNumber, "odds");
+            const fs = formLeg(legNumber);
+            const league = fs?.league || legField(legNumber, "league") || "";
+            const homeTeam = fs?.home_team || legField(legNumber, "home_team") || "";
+            const awayTeam = fs?.away_team || legField(legNumber, "away_team") || "";
+            const predictedOutcome = fs?.predicted_outcome || legField(legNumber, "predicted_outcome") || "";
+            const odds = fs?.odds || legField(legNumber, "odds") || "";
 
             // A "Set to nearest Saturday, 3pm" click redirects back here
-            // with this leg's suggested kick-off in the query string — it's
-            // only ever a starting guess (SPEC.md §3.12a: automated lookup
-            // is parked, most fixtures are Saturday 3pm anyway), never
-            // written to bet_legs until the admin actually hits Save, and
-            // takes priority over whatever was there before so re-clicking
-            // it always resets to the fresh suggestion.
-            const suggestedDatetime =
-              searchParams.suggestLeg === String(legNumber) ? searchParams.suggestDatetime ?? "" : "";
-            const kickoffDefaultValue = suggestedDatetime || toLocalDatetimeInputValue(matchDatetime);
+            // with the WHOLE form's state (including this leg's suggested
+            // kick-off) in `formState` — it's only ever a starting guess
+            // (SPEC.md §3.12a: automated lookup is parked, most fixtures
+            // are Saturday 3pm anyway), never written to bet_legs until the
+            // admin actually hits Save.
+            const kickoffDefaultValue =
+              fs?.match_datetime || toLocalDatetimeInputValue(legField(legNumber, "match_datetime"));
+            const justSuggested = searchParams.suggestLeg === String(legNumber);
 
             return (
               <fieldset key={legNumber} className="space-y-3 border-t border-white/10 pt-4">
                 <legend className="flex items-center gap-2 text-sm text-white/70 mb-1">
                   <span>Leg {legNumber}</span>
-                  {typeof odds === "number" && isBelowMinimumOdds(odds) && (
+                  {odds !== "" && Number.isFinite(Number(odds)) && isBelowMinimumOdds(Number(odds)) && (
                     <span className="rounded bg-red-500/20 border border-red-500/50 px-2 py-0.5 text-xs font-semibold text-red-300">
-                      RED FLAG — below evens (odds {odds.toFixed(2)})
+                      RED FLAG — below evens (odds {Number(odds).toFixed(2)})
                     </span>
                   )}
                 </legend>
@@ -265,7 +295,7 @@ export default async function ConfirmPage({
                 <select
                   id={`leg_${legNumber}_league`}
                   name={`leg_${legNumber}_league`}
-                  defaultValue={league ?? ""}
+                  defaultValue={league}
                   className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                 >
                   <option value="">—</option>
@@ -285,7 +315,7 @@ export default async function ConfirmPage({
                       id={`leg_${legNumber}_home_team`}
                       name={`leg_${legNumber}_home_team`}
                       type="text"
-                      defaultValue={homeTeam ?? ""}
+                      defaultValue={homeTeam}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     />
                   </div>
@@ -297,7 +327,7 @@ export default async function ConfirmPage({
                       id={`leg_${legNumber}_away_team`}
                       name={`leg_${legNumber}_away_team`}
                       type="text"
-                      defaultValue={awayTeam ?? ""}
+                      defaultValue={awayTeam}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     />
                   </div>
@@ -328,7 +358,7 @@ export default async function ConfirmPage({
                   >
                     Set to nearest Saturday, 3pm
                   </button>
-                  {suggestedDatetime && (
+                  {justSuggested && (
                     <span className="text-xs text-white/50">
                       Just a starting guess — check it against the actual fixture and adjust if needed.
                     </span>
@@ -346,7 +376,7 @@ export default async function ConfirmPage({
                     <select
                       id={`leg_${legNumber}_predicted_outcome`}
                       name={`leg_${legNumber}_predicted_outcome`}
-                      defaultValue={predictedOutcome ?? ""}
+                      defaultValue={predictedOutcome}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     >
                       <option value="">—</option>
@@ -367,7 +397,7 @@ export default async function ConfirmPage({
                       type="number"
                       step="0.01"
                       min="0.01"
-                      defaultValue={odds ?? ""}
+                      defaultValue={odds}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     />
                   </div>
