@@ -26,11 +26,28 @@ const STATUS_LABELS: Record<string, string> = {
   void: "Void",
 };
 
+// Same colour scheme as /bets, /admin/bets, /admin/bets/[id], and
+// /player/[id] — green for a win, red for a loss, kept neutral otherwise.
+const STATUS_STYLES: Record<string, string> = {
+  pending_review: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40",
+  pending_settlement: "bg-white/10 text-white/70 border-white/20",
+  won: "bg-green-500/20 text-green-300 border-green-500/40",
+  lost: "bg-red-500/20 text-red-300 border-red-500/40",
+  void: "bg-white/10 text-white/50 border-white/20",
+};
+
 const LEG_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   won: "Won",
   lost: "Lost",
   void: "Void",
+};
+
+const LEG_STATUS_STYLES: Record<string, string> = {
+  pending: "bg-white/10 text-white/70 border-white/20",
+  won: "bg-green-500/20 text-green-300 border-green-500/40",
+  lost: "bg-red-500/20 text-red-300 border-red-500/40",
+  void: "bg-white/10 text-white/50 border-white/20",
 };
 
 // Read-only view of one uploaded slip for general visitors (SPEC.md §6.1
@@ -78,7 +95,11 @@ export default async function BetDetailPage({ params }: { params: { id: string }
             })}
           </p>
         </div>
-        <span className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white/80">
+        <span
+          className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+            STATUS_STYLES[bet.status] ?? "border-white/20 text-white/80"
+          }`}
+        >
           {STATUS_LABELS[bet.status] ?? bet.status}
         </span>
       </div>
@@ -127,7 +148,11 @@ export default async function BetDetailPage({ params }: { params: { id: string }
                       RED FLAG — below evens
                     </span>
                   )}
-                  <span className="rounded border border-white/20 px-2 py-0.5 text-xs text-white/70">
+                  <span
+                    className={`rounded border px-2 py-0.5 text-xs font-semibold ${
+                      LEG_STATUS_STYLES[leg.status] ?? "border-white/20 text-white/70"
+                    }`}
+                  >
                     {LEG_STATUS_LABELS[leg.status] ?? leg.status}
                   </span>
                 </div>
