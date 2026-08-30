@@ -23,6 +23,14 @@
 -- As with migration 0006, the app's own .order() calls on the Ranking page
 -- override this regardless -- this keeps the view's own default consistent
 -- for any future direct SQL query against it.
+--
+-- win_star_count is appended as the LAST select-list column (after
+-- bets_settled/bets_won, not next to primary_score/secondary_score where it
+-- conceptually belongs) because CREATE OR REPLACE VIEW only allows adding
+-- columns at the end -- Postgres matches existing view columns positionally,
+-- so inserting a new one in the middle would try to rename bets_settled to
+-- win_star_count and fail with error 42P16. The app selects columns by name,
+-- so this ordering has no effect on anything.
 
 alter table bet_legs add column if not exists settled_via_90min_rule boolean not null default false;
 alter table bets add column if not exists win_star boolean not null default false;
@@ -56,11 +64,11 @@ select
       end
     ), 0
   ) as secondary_score,
-  coalesce(sum(case when la.bet_win_star then 1 else 0 end), 0) as win_star_count,
   count(la.bet_id) filter (
     where la.bet_status in ('won', 'lost')
   ) as bets_settled,
-  count(la.bet_id) filter (where la.bet_status = 'won') as bets_won
+  count(la.bet_id) filter (where la.bet_status = 'won') as bets_won,
+  coalesce(sum(case when la.bet_win_star then 1 else 0 end), 0) as win_star_count
 from players p
 left join leg_agg la on la.player_id = p.id
 group by p.id, p.name
