@@ -1,7 +1,20 @@
 # Bet1865 — Project Specification
 
-Version 1.11 — 30 August 2026
+Version 1.12 — 30 August 2026
 Owner / Admin: CJ
+
+**Changelog (v1.12, 30 Aug 2026)**: Simplified the **Rules page's** player-facing
+wording for the Betfair 90-minute rule and the Scoring section intro, per CJ's
+request — the Betfair Exchange bullet is now a short "this improves win rate,
+watch the win\* column" note rather than the full mechanics, and the Scoring
+intro is now two sentences (betc\*nt count for ranking, Win\*/Prediction Score
+for tiebreaks) rather than spelling out the tiebreak directions inline. This is
+a **player-facing readability change only** — the underlying rules, scoring
+logic, and tiebreak directions are unchanged, and §3 point 8 and §4 below keep
+the full technical detail (which the Rules page's own detail boxes for Win*
+and Prediction Score, further down that page, still cover). §3's "must be
+mirrored" note refers to rule *changes*, not wording style — the Rules page and
+this document are intentionally no longer word-for-word identical here.
 
 **Changelog (v1.11, 30 Aug 2026)**: Added a **Home / intro screen** at `/` — an
 intro banner video plays once (mutable/skippable), then reveals Ranking and
