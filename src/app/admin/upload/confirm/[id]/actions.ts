@@ -313,6 +313,7 @@ export async function updateBetAction(formData: FormData) {
   revalidatePath("/admin/bets");
   revalidatePath(`/bets/${betId}`);
   revalidatePath("/");
+  revalidatePath("/ranking");
 
   // SPEC.md: after a successful upload+confirm, take the uploader to the
   // read-only view of what they just saved, with an "Upload a Bet Slip"

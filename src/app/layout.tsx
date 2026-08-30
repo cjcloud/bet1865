@@ -43,7 +43,7 @@ export default async function RootLayout({
 
             {/* Desktop/tablet nav: inline links from `sm` up */}
             <nav className="hidden items-center gap-x-6 text-sm font-medium text-white/80 sm:flex">
-              <a href="/" className="hover:text-accent">Ranking</a>
+              <a href="/ranking" className="hover:text-accent">Ranking</a>
               <a href="/bets" className="hover:text-accent">View Slips</a>
               <a href="/rules" className="hover:text-accent">Rules</a>
               {isAdmin && (

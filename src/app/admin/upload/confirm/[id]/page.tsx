@@ -180,7 +180,7 @@ export default async function ConfirmPage({
           return (
             <div className="rounded border border-accent/50 bg-accent/10 px-4 py-3 text-accent">
               Saved. You can keep editing below, or you&apos;re done —{" "}
-              <Link href="/" className="underline">
+              <Link href="/ranking" className="underline">
                 view the ranking
               </Link>{" "}
               or{" "}

@@ -169,6 +169,7 @@ export async function updateLegStatusAction(legNumber: number, status: LegStatus
   revalidatePath("/admin/bets");
   revalidatePath(`/bets/${betId}`);
   revalidatePath("/");
+  revalidatePath("/ranking");
   redirect(`/admin/bets/${betId}`);
 }
 
@@ -248,5 +249,6 @@ export async function voidReconciliationAction(formData: FormData) {
   revalidatePath("/admin/bets");
   revalidatePath(`/bets/${betId}`);
   revalidatePath("/");
+  revalidatePath("/ranking");
   redirect(`/admin/bets/${betId}`);
 }

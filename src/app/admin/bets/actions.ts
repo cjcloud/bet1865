@@ -68,6 +68,7 @@ export async function deleteBetAction(formData: FormData) {
   revalidatePath("/admin/bets");
   revalidatePath("/bets");
   revalidatePath("/");
+  revalidatePath("/ranking");
   redirect("/admin/bets?deleted=1");
 }
 
@@ -105,6 +106,7 @@ export async function batchDeleteBetsAction(formData: FormData) {
   revalidatePath("/admin/bets");
   revalidatePath("/bets");
   revalidatePath("/");
+  revalidatePath("/ranking");
 
   const failedParam = failedCount > 0 ? `&failed=${failedCount}` : "";
   redirect(`/admin/bets?deleted=${deletedCount}${failedParam}`);

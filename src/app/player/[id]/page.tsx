@@ -172,7 +172,7 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-accent">{player.name}</h1>
-        <Link href="/" className="text-sm text-white/50 underline">
+        <Link href="/ranking" className="text-sm text-white/50 underline">
           Back to Ranking
         </Link>
       </div>

@@ -1,124 +1,65 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase-server";
-import { winRate } from "@/lib/player-stats";
 
-export const dynamic = "force-dynamic";
-
-interface RankingRow {
-  player_id: string;
-  name: string;
-  primary_score: number;
-  win_star_count: number;
-  secondary_score: number;
-  bets_settled: number;
-  bets_won: number;
-}
-
-// betc*nt leaderboard (SPEC.md §4, §6.1 #4). player_rankings is a Postgres
-// view over bets/bet_legs, always derived live — no manual recompute step —
-// and already excludes any bet reconciled as voided_full_refund (§3.7a)
-// from both scores and the bets-played/win-rate denominator (migration
-// 0005). Sort order is set explicitly here (not left to the view's own
-// default) so it's obvious at a glance what this page shows: the biggest
-// betc*nt — most COTW's — sits at the top. Ties break three levels deep:
-// win* count first (more wins earned only via Betfair's 90-minute rule is
-// the more shameful showing, so a HIGHER win* count sits above/worse — see
-// SPEC.md §3.8/§4), then Prediction Score (fewest leg wins among tied
-// players is the more shameful showing, so a LOWER Prediction Score sits
-// above/worse).
-export default async function RankingPage() {
-  const supabase = createClient();
-
-  const { data: rankings } = await supabase
-    .from("player_rankings")
-    .select("player_id, name, primary_score, win_star_count, secondary_score, bets_settled, bets_won")
-    .order("primary_score", { ascending: false })
-    .order("win_star_count", { ascending: false })
-    .order("secondary_score", { ascending: true })
-    .returns<RankingRow[]>();
-
-  const rows = rankings ?? [];
-  const maxPrimary = Math.max(1, ...rows.map((r) => r.primary_score));
+// Landing / home screen (v1.11) — plays the intro banner once, then reveals
+// the two main entry points (Ranking, View Slips). Ranking itself moved to
+// /ranking so this route ("/") could become a pure intro screen rather than
+// jumping straight into the leaderboard.
+//
+// Autoplay note: browsers only allow autoplay when the <video> is muted, so
+// this plays muted with `playsInline` (required for iOS Safari to autoplay
+// inline rather than forcing fullscreen). `onEnded` reveals the buttons.
+// A "Skip intro" control is shown immediately alongside the video so a
+// repeat visitor isn't forced to sit through it every time, and the buttons
+// also appear if the video fails to load at all (`onError`) so a slow/broken
+// video connection never strands a player without a way into the app.
+export default function HomePage() {
+  const [introDone, setIntroDone] = useState(false);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-accent">betc*nt Ranking</h1>
-        <p className="text-white/70">
-          Most betc*nt count sits at the top — that&apos;s your number of COTW&apos;s. Ties break
-          on win* count, then Prediction Score. See{" "}
-          <Link href="/rules" className="underline hover:text-accent">
-            the Rules
-          </Link>{" "}
-          for how it&apos;s scored.
-        </p>
+    <div className="flex flex-col items-center gap-8">
+      <div className="w-full max-w-2xl overflow-hidden rounded-lg border border-white/10 bg-black">
+        <video
+          className="w-full"
+          src="/intro-banner.mp4"
+          autoPlay
+          muted
+          playsInline
+          onEnded={() => setIntroDone(true)}
+          onError={() => setIntroDone(true)}
+        >
+          Your browser doesn&apos;t support inline video playback.
+        </video>
       </div>
 
-      {rows.length === 0 ? (
-        <p className="text-white/50 text-sm">No players found.</p>
-      ) : (
-        <div className="overflow-x-auto rounded border border-white/10 bg-surface">
-          <table className="w-full min-w-[620px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-white/10 text-white/50">
-                <th className="px-4 py-3 font-medium">#</th>
-                <th className="px-4 py-3 font-medium">Player</th>
-                <th className="px-4 py-3 font-medium text-right">
-                  betc*nt
-                  <div className="text-[10px] font-normal normal-case text-white/40">(COTW&apos;s)</div>
-                </th>
-                <th className="px-4 py-3 font-medium text-right">
-                  Win*
-                  <div className="text-[10px] font-normal normal-case text-white/40">(90-min wins)</div>
-                </th>
-                <th className="px-4 py-3 font-medium text-right">Prediction Score</th>
-                <th className="px-4 py-3 font-medium text-right">Played</th>
-                <th className="px-4 py-3 font-medium text-right">Win rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => {
-                const rate = winRate(row.bets_won, row.bets_settled);
-                return (
-                  <tr key={row.player_id} className="border-b border-white/5 last:border-b-0">
-                    <td className="px-4 py-3 text-white/50">{i + 1}</td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/player/${row.player_id}`}
-                        className="font-medium text-white hover:text-accent"
-                      >
-                        {row.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="font-semibold text-white">{row.primary_score}</span>
-                        <span
-                          aria-hidden
-                          className="h-2 rounded-full bg-red-400/70"
-                          style={{
-                            width: `${Math.max(4, (row.primary_score / maxPrimary) * 48)}px`,
-                          }}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right text-white/60">{row.win_star_count}</td>
-                    <td className="px-4 py-3 text-right text-white/80">{row.secondary_score}</td>
-                    <td className="px-4 py-3 text-right text-white/60">{row.bets_settled}</td>
-                    <td className="px-4 py-3 text-right text-white/60">
-                      {rate === null ? "—" : `${rate.toFixed(0)}%`}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      {!introDone && (
+        <button
+          type="button"
+          onClick={() => setIntroDone(true)}
+          className="min-h-[36px] text-sm text-white/50 underline hover:text-white/80"
+        >
+          Skip intro
+        </button>
       )}
 
-      <p className="text-xs text-white/40">
-        Tap a player&apos;s name for their full bet history, current streak, and charts.
-      </p>
+      {introDone && (
+        <div className="flex w-full max-w-2xl flex-col gap-3 sm:flex-row sm:justify-center">
+          <Link
+            href="/ranking"
+            className="flex min-h-[48px] flex-1 items-center justify-center rounded-md bg-accent px-6 text-base font-semibold text-background hover:brightness-110"
+          >
+            Ranking
+          </Link>
+          <Link
+            href="/bets"
+            className="flex min-h-[48px] flex-1 items-center justify-center rounded-md border border-white/20 px-6 text-base font-semibold text-white hover:bg-white/10"
+          >
+            View Slips
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

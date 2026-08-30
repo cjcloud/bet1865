@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 const PUBLIC_LINKS = [
-  { href: "/", label: "Ranking" },
+  { href: "/ranking", label: "Ranking" },
   { href: "/bets", label: "View Slips" },
   { href: "/rules", label: "Rules" },
 ];
