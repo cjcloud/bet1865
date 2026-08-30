@@ -1,7 +1,14 @@
 # Bet1865 — Project Specification
 
-Version 1.12 — 30 August 2026
+Version 1.13 — 30 August 2026
 Owner / Admin: CJ
+
+**Changelog (v1.13, 30 Aug 2026)**: Fixed a gap from v1.8's win\* rollout — the
+per-player drill-down page (`/player/[id]`) never gained a win\* stat tile, so a
+player's win\* count was only visible on the Ranking table itself, not on their
+own page. Added a **Win\*** tile between betc\*nt and Prediction Score,
+matching the Ranking table's column order. No scoring/logic change — this was
+a display-only gap.
 
 **Changelog (v1.12, 30 Aug 2026)**: Simplified the **Rules page's** player-facing
 wording for the Betfair 90-minute rule and the Scoring section intro, per CJ's
@@ -627,8 +634,9 @@ rankings automatically, with no separate recompute step.
 5. **Ranking** (`/ranking`, **moved from `/` in v1.11**) — the betc\*nt
    leaderboard: table of all 6 players sorted per §4 (highest betc\*nt count —
    most COTW's — first, ties broken by win\* count then Prediction Score, v1.8),
-   plus a per-player detail view (bet history, win rate, current streak) and
-   simple charts (betc\*nt count over time, legs-won distribution).
+   plus a per-player detail view (bet history, win rate, current streak,
+   win\* count — added v1.13; see §6.1's changelog note) and simple charts
+   (betc\*nt count over time, legs-won distribution).
 6. **Admin** (`/admin`, auth-required, **hidden from general users, v1.5**) —
    uploading a slip (see "Upload" above); full CRUD on bets/legs/players/
    bookmakers; **per-leg Won/Lost/Void controls to register results (§3.9a)** —
