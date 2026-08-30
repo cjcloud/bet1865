@@ -204,17 +204,6 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
         </div>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="rounded border border-white/10 bg-surface p-4">
-          <h2 className="mb-2 text-sm font-medium text-white/70">betc*nt count over time</h2>
-          <PrimaryScoreOverTimeChart cumulative={cumulativePrimary} />
-        </div>
-        <div className="rounded border border-white/10 bg-surface p-4">
-          <h2 className="mb-2 text-sm font-medium text-white/70">Legs won per bet</h2>
-          <LegsWonDistributionChart buckets={buckets} />
-        </div>
-      </div>
-
       <div>
         <h2 className="mb-3 text-lg font-semibold text-white">Bet history</h2>
         {allBets.length === 0 ? (
@@ -267,6 +256,17 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
             </table>
           </div>
         )}
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div className="rounded border border-white/10 bg-surface p-4">
+          <h2 className="mb-2 text-sm font-medium text-white/70">betc*nt count over time</h2>
+          <PrimaryScoreOverTimeChart cumulative={cumulativePrimary} />
+        </div>
+        <div className="rounded border border-white/10 bg-surface p-4">
+          <h2 className="mb-2 text-sm font-medium text-white/70">Legs won per bet</h2>
+          <LegsWonDistributionChart buckets={buckets} />
+        </div>
       </div>
     </div>
   );
