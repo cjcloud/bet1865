@@ -207,7 +207,7 @@ export default async function BetDetailPage({ params }: { params: { id: string }
                 </div>
 
                 <div className="text-xs text-white/50">
-                  {OUTCOME_LABELS[leg.predicted_outcome] ?? leg.predicted_outcome} ·{" "}
+                  Prediction: {OUTCOME_LABELS[leg.predicted_outcome] ?? leg.predicted_outcome} ·{" "}
                   {new Date(leg.match_datetime).toLocaleString("en-GB", {
                     weekday: "short",
                     day: "numeric",
