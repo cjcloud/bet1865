@@ -6,7 +6,7 @@ import { z } from "zod";
 // counts as "good enough" to save without review vs what needs a human eye.
 // See SPEC.md §5 for the canonical (strict) bets/bet_legs schema this feeds.
 
-export const LEAGUE_CODES = ["PL", "CHAMPIONSHIP", "LEAGUE_ONE", "LEAGUE_TWO"] as const;
+export const LEAGUE_CODES = ["PL", "CHAMPIONSHIP", "LEAGUE_ONE", "LEAGUE_TWO", "FA_CUP", "EFL_CUP"] as const;
 export const PREDICTED_OUTCOMES = ["HOME_WIN", "AWAY_WIN", "DRAW"] as const;
 
 export const looseLegSchema = z.object({

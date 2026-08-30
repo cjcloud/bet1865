@@ -20,8 +20,9 @@ export default function RulesPage() {
             The order of play is: <strong>Dingle, John, Moony, Simon, Chris, Clive</strong>.
           </li>
           <li>
-            All three legs must be football matches from the English top-flight domestic pyramid:
-            Premier League, EFL Championship, EFL League One, EFL League Two.
+            All three legs must be football matches from an eligible English competition: the top-flight
+            domestic pyramid (Premier League, EFL Championship, EFL League One, EFL League Two) or the two
+            domestic cups (the FA Cup and the EFL Carabao Cup).
           </li>
           <li>
             Each leg is intended to be priced at <strong>evens (2.0) or better</strong> at the time

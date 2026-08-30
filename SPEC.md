@@ -1,7 +1,9 @@
 # Bet1865 — Project Specification
 
-Version 1.6 — 29 August 2026
+Version 1.7 — 30 August 2026
 Owner / Admin: CJ
+
+**Changelog (v1.7, 30 Aug 2026)**: CJ asked for the two domestic cup competitions to be added as eligible competitions for a leg (§3 point 2). `league_code` gains two new enum values, `FA_CUP` and `EFL_CUP` (migration `0007_add_cup_leagues.sql`), and the AI slip-extraction prompt, the admin's league dropdown, and every page that renders a league label were updated together so a cup-tie leg can be entered end-to-end, not just described here. §3.12a's earlier statement that a cup fixture is "not a valid leg" is now superseded — see the updated wording there.
 
 **Changelog (v1.1, 29 Aug 2026)**: Automated fixture lookup and automated result
 settlement via a third-party API were blocked by API-Football's free-tier plan not
@@ -105,8 +107,10 @@ These rules are the source of truth for the in-app **Rules** page and for all sc
 logic. Any change to this section must be mirrored on that page.
 
 1. Each week, one of the six players places a **treble** (3-leg accumulator) bet.
-2. All three legs must be football matches from the **English top-flight domestic
-   pyramid**: Premier League, EFL Championship, EFL League One, EFL League Two.
+2. All three legs must be football matches from an **eligible English competition**:
+   the top-flight domestic pyramid (Premier League, EFL Championship, EFL League One,
+   EFL League Two) or one of the two domestic cups (the **FA Cup** and the **EFL Cup /
+   Carabao Cup**) — added to the eligible list in v1.7.
 3. Each leg is *intended* to be priced at **Evens (decimal 2.0) or better** (i.e. odds
    ≥ 2.0) at the time the bet is placed — but the app never rejects an upload for
    breaking this. Every slip is accepted and recorded exactly as it reads; any leg
@@ -296,10 +300,11 @@ auto-fill. This is exactly the fallback path the original design already relied 
 for "no match found," now promoted to the only path:
 
 - **League**: one of the 4 pyramid divisions (Premier League, Championship,
-  League One, League Two) — a required field per leg, per §5's `league_code` enum.
-  A cup fixture (FA Cup, EFL Cup) is not a valid leg per §3 point 2; if a slip
-  leg turns out to be a cup tie the admin resolves it as a data-entry correction
-  (§6.1), same as any other mis-parsed field.
+  League One, League Two) or one of the 2 domestic cups (FA Cup, EFL Cup) — a
+  required field per leg, per §5's `league_code` enum. **v1.7**: cup ties are now
+  a valid league selection (previously the admin had to resolve a cup-tie leg as
+  a data-entry correction since no cup value existed in the enum — that workaround
+  is no longer needed).
 - **Kick-off date/time**: a plain date/time field (`match_datetime`), typed from
   what's legible on the slip or from the admin's own knowledge of the fixture. A
   "Set to nearest Saturday, 3pm" helper button offers a starting guess (most of
@@ -378,6 +383,10 @@ Prediction Score rename are query-level/presentation changes (the `player_rankin
 view's own default `ORDER BY` was flipped to match, but `primary_score`/
 `secondary_score` remain the underlying column names).
 
+**Changelog (v1.7)**: `league_code` gains `FA_CUP` and `EFL_CUP` (migration
+`0007_add_cup_leagues.sql`), per §3 point 2's expanded eligible-competition list.
+No other schema change.
+
 ```sql
 -- Fixed roster; seeded once, editable by admin
 create table players (
@@ -396,7 +405,7 @@ create table bookmakers (
 
 create type bet_status as enum ('pending_review','pending_settlement','won','lost','void');
 create type leg_status as enum ('pending','won','lost','void');
-create type league_code as enum ('PL','CHAMPIONSHIP','LEAGUE_ONE','LEAGUE_TWO');
+create type league_code as enum ('PL','CHAMPIONSHIP','LEAGUE_ONE','LEAGUE_TWO','FA_CUP','EFL_CUP');
 create type predicted_outcome as enum ('HOME_WIN','AWAY_WIN','DRAW');
 -- Records which §3.7a reconciliation path was used, if any (auditing/reporting only)
 create type bet_reconciliation as enum ('standard','voided_full_refund','manual_bookmaker_return');

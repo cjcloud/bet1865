@@ -10,6 +10,8 @@ const LEAGUE_LABELS: Record<string, string> = {
   CHAMPIONSHIP: "Championship",
   LEAGUE_ONE: "League One",
   LEAGUE_TWO: "League Two",
+  FA_CUP: "FA Cup",
+  EFL_CUP: "EFL Cup (Carabao Cup)",
 };
 
 const OUTCOME_LABELS: Record<string, string> = {
