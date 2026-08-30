@@ -57,8 +57,10 @@ export default function RulesPage() {
         <h2 className="text-lg font-semibold text-white">Scoring — the betc*nt table</h2>
         <p className="text-sm text-white/70">
           Every player starts at 0/0. Two scores are tracked. The Ranking table lists players by
-          betc*nt count, highest first — that&apos;s your number of COTW&apos;s (Cunt Of The
-          Week) — with Prediction Score breaking a tie.
+          betc*nt count, highest first — that&apos;s your number of COTW&apos;s — with Prediction
+          Score breaking a tie: a higher betc*nt count means lower betting acumen, so on a tie the
+          player with the <em>lower</em> Prediction Score (the worse predictor) ranks above the
+          one with the higher Prediction Score.
         </p>
 
         <div className="rounded border border-white/10 bg-surface p-4">
@@ -75,7 +77,10 @@ export default function RulesPage() {
         <div className="rounded border border-white/10 bg-surface p-4">
           <h3 className="font-medium text-white">Prediction Score (tiebreaker)</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/70 marker:text-accent">
-            <li>Breaks a tie between players level on betc*nt count.</li>
+            <li>
+              Breaks a tie between players level on betc*nt count — the lower Prediction Score
+              ranks above the higher one, in keeping with a higher position meaning lower success.
+            </li>
             <li>+1 for every individual leg that wins, across all bets (0-3 per bet).</li>
             <li>
               +2 bonus on any bet where all three legs win — a clean-sweep bet is worth +5 in

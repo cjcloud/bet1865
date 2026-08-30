@@ -1,6 +1,6 @@
 # Bet1865 — Project Specification
 
-Version 1.5 — 29 August 2026
+Version 1.6 — 29 August 2026
 Owner / Admin: CJ
 
 **Changelog (v1.1, 29 Aug 2026)**: Automated fixture lookup and automated result
@@ -52,13 +52,29 @@ running in front of CJ:
   called via `fetch` rather than a page navigation.
 - **Ranking sort order reversed (§4, §6.1).** The betc\*nt leaderboard now lists the
   **highest** betc\*nt count first — a player's betc\*nt count is described in-app
-  as "your number of COTW's" (Cunt Of The Week) — rather than the original
+  as "your number of COTW's" — rather than the original
   best-first ("lowest wins") framing. Prediction Score breaks a tie in the same
   worst-first direction (fewest leg wins among tied players ranks higher).
 - **"Secondary betc\*nt score" renamed to "Prediction Score" (§4).** Same
   computation as before (leg wins + clean-sweep bonus); the name change makes its
   role as the betc\*nt-tie tiebreaker explicit rather than an unlabelled "form"
   indicator.
+
+**Changelog (v1.6, 29 Aug 2026)**: Two small confirmations from CJ after reviewing
+v1.5's changes:
+- **Prediction Score tiebreak direction confirmed (§4).** A higher Prediction
+  Score reflects better betting acumen; a higher betc\*nt count reflects *worse*
+  acumen (more losing bets). So when two players are level on betc\*nt count, the
+  one with the **lower** Prediction Score — the worse predictor — sits **above**
+  the one with the higher Prediction Score, consistent with the Ranking table's
+  "higher position = lower success" ordering. No behavioural change — this was
+  already how §4 and the app's `.order()` calls worked; it's now confirmed rather
+  than inferred.
+- **"COTW" stays an unexpanded acronym.** The v1.5 changelog and §4 had spelled it
+  out as "Cunt Of The Week" in a couple of places; CJ asked for it to remain just
+  the initialism everywhere in-app and in this spec. Removed the expansion from
+  §4 and this changelog; §3's and §6.1's existing unexpanded references were
+  already correct.
 
 ## 1. Purpose
 
@@ -298,7 +314,7 @@ for "no match found," now promoted to the only path:
 Every player starts each season at **0 / 0**. Two scores are tracked per player:
 
 **betc\*nt count** (SPEC.md-internal name: primary score; a player's "number of
-COTW's" — Cunt Of The Week — in-app)
+COTW's" in-app)
 - +1 every time a bet **recorded for that player** ultimately **loses** (i.e.
   `bets.status = 'lost'`).
 - Unaffected by wins.
