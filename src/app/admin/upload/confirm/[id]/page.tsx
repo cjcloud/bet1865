@@ -21,6 +21,15 @@ const OUTCOME_LABELS: Record<string, string> = {
   DRAW: "Draw",
 };
 
+const SETTLED_STATUSES = new Set(["won", "lost", "void"]);
+const BET_STATUS_LABELS: Record<string, string> = {
+  pending_review: "Pending review",
+  pending_settlement: "Awaiting result",
+  won: "Won",
+  lost: "Lost",
+  void: "Void",
+};
+
 function toLocalDatetimeInputValue(iso: string | null | undefined) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -64,6 +73,13 @@ export default async function ConfirmPage({
     .select("name")
     .eq("id", bet.bookmaker_id)
     .single();
+
+  // Full lists so the amend form can reassign either — SPEC.md §6.3's
+  // "amend any bet-level field" includes correcting a slip recorded
+  // against the wrong player or bookmaker, not just fixing what the AI
+  // misread on the legs.
+  const { data: allPlayers } = await supabase.from("players").select("id, name").order("name");
+  const { data: allBookmakers } = await supabase.from("bookmakers").select("id, name").order("name");
 
   const { data: signedUrlData } = await supabase.storage
     .from("betslips")
@@ -178,6 +194,20 @@ export default async function ConfirmPage({
         return null;
       })()}
 
+      {SETTLED_STATUSES.has(bet.status) && (
+        <div className="rounded border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-white/80">
+          This bet is already settled ({BET_STATUS_LABELS[bet.status] ?? bet.status}). You can still
+          correct anything here — the player, bookmaker, stake, potential return, or any leg&apos;s
+          details — even after settlement (SPEC.md &sect;6.3). Saving will re-check the settled
+          winnings against a corrected stake/return figure automatically. To change a leg&apos;s
+          Won/Lost/Void result itself, use{" "}
+          <Link href={`/admin/bets/${bet.id}`} className="underline">
+            Settle
+          </Link>{" "}
+          instead.
+        </div>
+      )}
+
       {bet.admin_notes && (
         <div className="rounded border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
           {bet.admin_notes}
@@ -217,6 +247,44 @@ export default async function ConfirmPage({
 
           <fieldset className="space-y-3">
             <legend className="text-sm text-white/70 mb-1">Bet details</legend>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-white/70" htmlFor="player_id">
+                  Player
+                </label>
+                <select
+                  id="player_id"
+                  name="player_id"
+                  defaultValue={bet.player_id}
+                  className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
+                >
+                  {(allPlayers ?? []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-white/70" htmlFor="bookmaker_id">
+                  Bookmaker
+                </label>
+                <select
+                  id="bookmaker_id"
+                  name="bookmaker_id"
+                  defaultValue={bet.bookmaker_id}
+                  className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
+                >
+                  {(allBookmakers ?? []).map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <label className="block text-sm text-white/70" htmlFor="bet_date">
               Date
             </label>
@@ -257,6 +325,18 @@ export default async function ConfirmPage({
                 />
               </div>
             </div>
+
+            <label className="block text-sm text-white/70" htmlFor="admin_notes">
+              Admin notes (optional)
+            </label>
+            <textarea
+              id="admin_notes"
+              name="admin_notes"
+              defaultValue={bet.admin_notes ?? ""}
+              rows={2}
+              placeholder="e.g. reason for a correction, for future reference"
+              className="w-full rounded bg-black/40 border border-white/20 px-3 py-2 text-white text-sm"
+            />
           </fieldset>
 
           {[1, 2, 3].map((legNumber) => {

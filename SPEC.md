@@ -1,7 +1,23 @@
 # Bet1865 — Project Specification
 
-Version 1.8 — 30 August 2026
+Version 1.9 — 30 August 2026
 Owner / Admin: CJ
+
+**Changelog (v1.9, 30 Aug 2026)**: Implemented Phase 6 (SPEC.md §6.3): retrospective
+amend of any bet-level or leg-level field — including a slip that's already fully
+settled Won/Lost/Void — and batch delete of multiple bet slips at once. The confirm/
+edit screen (`/admin/upload/confirm/[id]`, already used for the post-upload check)
+is now also the amend screen, extended with Player/Bookmaker reassignment and an
+Admin notes field, and every change it saves is now written to `admin_audit_log`
+(previously this screen logged nothing). Amending a stake or slip return amount on
+an already-settled bet re-derives that bet's status/winnings/win\* automatically
+(SPEC.md §3.7/§4), so a correction is immediately reflected in the betc\*nt
+rankings — a Void leg is left untouched either way, since that stays the dedicated
+§3.7a reconciliation control's job. All Bets (`/admin/bets`) gained checkboxes and
+a "Delete selected" control so several mistaken/duplicate slips can be removed in
+one confirmed action instead of one at a time; each still gets its own
+`admin_audit_log` snapshot before removal, same as a single delete. See the
+updated §6.1 and §6.3 below.
 
 **Changelog (v1.8, 30 Aug 2026)**: Added the **win\*** feature, per CJ's request. A Betfair Exchange leg can win purely because of §3.8's 90-minute rule — i.e. it would have *lost* on the actual full-time result. Since the betc\*nt score is loss-based, this kind of win can flatter a player's betc\*nt count more than a "clean" win would, so it's now tracked as a tiebreaker signal: `bet_legs.settled_via_90min_rule` (admin-set on settlement, §3.9a) and `bets.win_star` (derived, §4) are new columns (migration `0008_win_star.sql`), and the Ranking table's tiebreak is now three levels deep — betc\*nt count, then win\* count, then Prediction Score (§4). See the updated §3.8, §3.9a, §4, §5, and §6.1 below.
 
@@ -541,9 +557,12 @@ rankings automatically, with no separate recompute step.
   is Void, this auto-derivation is replaced by the required §3.7a reconciliation
   (void the whole bet, or enter the bookmaker's recalculated return). The earlier
   automated goal-event-driven settlement engine is parked (§3.9).
-- **Delete/amend (admin-only, §6.3)**: the admin can amend any field on an
-  existing bet or leg, or delete a bet slip entirely — see §6.3 for the full
-  behaviour, including the audit-log snapshot taken before a delete.
+- **Delete/amend (admin-only, §6.3, v1.9)**: the admin can amend any bet-level
+  or covered leg field, even on an already-settled bet — the correction is
+  audit-logged and, where it affects the settlement figures, re-derives
+  status/winnings/win\* automatically — or delete a bet slip entirely, singly or
+  in a batch — see §6.3 for the full behaviour, including the audit-log snapshot
+  taken before each delete.
 - **Auth (v1.5)**: **admin-only** authentication via Supabase Auth (single admin
   account, **magic link**). Only the pre-created admin user can sign in: "Allow new
   user signups" is disabled in Supabase Auth settings, so `signInWithOtp` only
@@ -591,10 +610,13 @@ rankings automatically, with no separate recompute step.
    the 90-minute rule; **a Void-leg reconciliation control (§3.7a)** that appears
    whenever a bet has a Void leg, letting the admin either void the whole bet (full
    refund, excluded from scoring) or type in the bookmaker's recalculated return;
-   **amend any bet or leg field, or delete a bet slip entirely (§6.3)**; every
-   change (including a delete) writes to an audit trail (`admin_audit_log`); view
-   raw AI extraction JSON alongside the slip image side-by-side for corrections;
-   manage the fixed player and bookmaker lists.
+   **amend any bet-level or covered leg field — including on an already-settled
+   bet (§6.3, v1.9)** — with the settlement figures re-derived automatically when
+   a correction affects them; **delete a bet slip entirely, singly or as a batch
+   (§6.3, v1.9)**; every change (amend, single delete, or batch delete) writes to
+   an audit trail (`admin_audit_log`); view raw AI extraction JSON alongside the
+   slip image side-by-side for corrections; manage the fixed player and
+   bookmaker lists.
 
 ### 6.2 Non-functional requirements
 
@@ -640,20 +662,36 @@ rankings automatically, with no separate recompute step.
 
 ### 6.3 Admin: amending and deleting bet slips
 
-The admin needs full corrective and destructive control over what's already been
+The admin has full corrective and destructive control over what's already been
 recorded, beyond the settlement-specific corrections already described in §3.7a/
 §3.9a/§3.12a:
 
-- **Amend.** From the Admin bet detail view, the admin can edit **any** field on a
-  bet or its three legs — the bet-level fields captured at upload (player,
-  bookmaker, bet date, stake, the slip's stated return amount, admin notes) as well
-  as every leg field (league, home/away team, kick-off date/time, predicted
-  outcome, odds, Won/Lost/Void status, settlement notes, full-time score). Every
-  field change is logged to `admin_audit_log` (old value, new value, timestamp)
-  exactly like the settlement-specific corrections elsewhere in this spec, and any
-  downstream derived state (bet status/winnings, the betc\*nt rankings)
-  recomputes immediately after an amendment — there's no separate "save and
-  recalculate" step.
+- **Amend (v1.9 — implemented).** From a bet's Admin settlement page, an "Edit
+  details" link opens the amend screen — the same confirm/edit screen used right
+  after upload (`/admin/upload/confirm/[id]`), reused rather than duplicated. The
+  admin can correct any bet-level field (player, bookmaker, bet date, stake, the
+  slip's stated return amount, admin notes) and any leg field this screen covers
+  (league, home/away team, kick-off date/time, predicted outcome, odds).
+  Settlement-owned fields — Won/Lost/Void status, settlement notes, full-time
+  score, and the win\* 90-minute-rule flag — stay the dedicated Settle screen's
+  job (§3.9a) and are left untouched by an amend save.
+  - **Works the same on an already-settled bet as on a pending one.** This is
+    deliberate: a slip recorded against the wrong player, or a mistyped stake, is
+    just as likely to surface after settlement as before it. The amend screen
+    shows a banner naming the bet's current status when it's already Won/Lost/
+    Void, and saving there doesn't reset or require re-doing that settlement.
+  - **Every changed field is logged** to `admin_audit_log` (old value, new value,
+    timestamp) — one entry summarising whatever bet-level fields changed, and one
+    per leg that changed, so a correction after the fact is exactly as auditable
+    as the original entry.
+  - **If the correction touches a figure the settlement roll-up depends on** (the
+    slip's stated return amount — stake itself doesn't feed it, §3.7) and the bet
+    already has all three legs Won/Lost with no Void present, the bet's
+    `status`/`winnings`/win\* are **re-derived automatically** from the corrected
+    figure using the same logic the Settle screen uses (§3.7, §4) — so the
+    betc\*nt rankings reflect the fix immediately, with no separate recalculate
+    step. A bet with a Void leg is left alone here regardless of what changed —
+    that stays the §3.7a reconciliation control's job, never this screen's.
 - **Delete.** The admin can remove a bet slip entirely — its bet row and all three
   leg rows — for cases like a duplicate upload, a slip recorded against the wrong
   player, or a test/mistaken entry. This is a deliberately destructive, admin-only
@@ -666,10 +704,9 @@ recorded, beyond the settlement-specific corrections already described in §3.7a
     even though the live row is gone.
   - `bet_legs` rows for that bet cascade-delete automatically
     (`on delete cascade`, already in §5's schema) — no separate leg-deletion step.
-  - The associated slip image in Supabase Storage is deleted at the same time, to
-    avoid accumulating orphaned files — a tidiness measure, not a correctness
-    requirement, so it can be skipped if it meaningfully complicates the
-    implementation.
+  - The associated slip image in Supabase Storage is deleted at the same time
+    (best-effort — a failure here is logged, not blocking, since a leftover
+    image file is a tidiness issue, not a correctness one).
   - Once deleted, the bet stops appearing anywhere it was previously shown — View
     Slips, Admin, and the betc\*nt rankings — immediately and without any separate
     recompute step, since the ranking view is always derived live from whichever
@@ -678,6 +715,17 @@ recorded, beyond the settlement-specific corrections already described in §3.7a
     the audit-log snapshot if a delete turns out to be a mistake. Acceptable for a
     small private app with a single trusted admin, but worth being explicit that
     v1 has no soft-delete/recycle-bin.
+  - **Batch delete (v1.9 — implemented).** All Bets (`/admin/bets`) has a
+    checkbox per row plus a "select all" and a "Delete selected" control, so
+    several slips can be removed in one confirmed action rather than one at a
+    time — useful for clearing out a run of test/duplicate uploads. Each selected
+    bet still goes through exactly the same steps as a single delete (its own
+    audit-log snapshot first, then best-effort image removal, then the row) —
+    batching only saves the admin repeated confirm clicks, it doesn't skip any of
+    the single-delete safeguards. If one bet in a batch fails to delete (a race
+    with something else, a transient DB error), the rest of the batch still
+    completes and the admin is told how many succeeded versus failed, rather than
+    the whole batch silently aborting.
 
 ## 7. Branding & Look-and-Feel
 

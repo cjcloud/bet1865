@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase-admin";
 import DeleteBetButton from "@/components/DeleteBetButton";
+import SelectAllCheckbox from "@/components/SelectAllCheckbox";
+import BatchDeleteButton from "@/components/BatchDeleteButton";
+import { batchDeleteBetsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,14 +23,14 @@ const STATUS_STYLES: Record<string, string> = {
   void: "bg-white/10 text-white/50 border-white/20",
 };
 
-// Admin's full bet list - amend/delete tooling (SPEC.md §6.1, §6.3). Delete
-// is live here now (29 Aug 2026, ahead of the rest of Phase 6) to clear out
-// duplicate uploads; full field-by-field amend beyond the existing
-// upload/confirm form is still Phase 6 work.
+// Admin's full bet list - amend/delete tooling (SPEC.md §6.1, §6.3). Single
+// and batch delete are both live here (batch added 30 Aug 2026, Phase 6);
+// full field-by-field amend lives on the confirm/edit screen, reached via
+// each bet's own detail/settlement page.
 export default async function AdminBetsPage({
   searchParams,
 }: {
-  searchParams: { player?: string; deleted?: string };
+  searchParams: { player?: string; deleted?: string; failed?: string };
 }) {
   const supabase = createAdminClient();
 
@@ -68,7 +71,15 @@ export default async function AdminBetsPage({
 
       {searchParams.deleted && (
         <p className="rounded border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm text-green-300">
-          Bet deleted.
+          {Number(searchParams.deleted) > 1
+            ? `${searchParams.deleted} bet slips deleted.`
+            : "Bet slip deleted."}
+          {searchParams.failed && (
+            <span className="text-yellow-300">
+              {" "}
+              {searchParams.failed} could not be deleted — check the server logs.
+            </span>
+          )}
         </p>
       )}
 
@@ -107,49 +118,65 @@ export default async function AdminBetsPage({
       {!bets?.length ? (
         <p className="text-white/50 text-sm">No slips uploaded yet.</p>
       ) : (
-        <div className="space-y-3">
-          {bets.map((bet) => (
-            <div
-              key={bet.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded border border-white/10 bg-surface px-4 py-3"
-            >
-              <Link href={`/bets/${bet.id}`} className="min-w-0 flex-1 hover:opacity-80">
-                <div className="font-medium text-white">
-                  {playerNameById.get(bet.player_id) ?? "Unknown player"} ·{" "}
-                  {bookmakerNameById.get(bet.bookmaker_id) ?? "Unknown bookmaker"}
-                </div>
-                <div className="text-sm text-white/50">
-                  {new Date(bet.bet_date).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}{" "}
-                  · £{Number(bet.stake).toFixed(2)} stake · £{Number(bet.slip_return_amount).toFixed(2)}{" "}
-                  potential return
-                </div>
-              </Link>
-              <span
-                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${
-                  STATUS_STYLES[bet.status] ?? "border-white/20 text-white/70"
-                }`}
+        <form action={batchDeleteBetsAction} className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-white/10 bg-surface px-4 py-2">
+            <SelectAllCheckbox />
+            <BatchDeleteButton />
+          </div>
+
+          <div className="space-y-3">
+            {bets.map((bet) => (
+              <div
+                key={bet.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded border border-white/10 bg-surface px-4 py-3"
               >
-                {STATUS_LABELS[bet.status] ?? bet.status}
-              </span>
-              <Link
-                href={`/admin/bets/${bet.id}`}
-                className="min-h-[36px] shrink-0 flex items-center rounded border border-accent/60 px-3 text-sm font-medium text-accent hover:bg-accent/10"
-              >
-                Settle
-              </Link>
-              <DeleteBetButton
-                betId={bet.id}
-                label={`${playerNameById.get(bet.player_id) ?? "Unknown"} · ${new Date(
-                  bet.bet_date
-                ).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}
-              />
-            </div>
-          ))}
-        </div>
+                <input
+                  type="checkbox"
+                  name="bet_ids"
+                  value={bet.id}
+                  aria-label={`Select ${playerNameById.get(bet.player_id) ?? "Unknown"}'s ${new Date(
+                    bet.bet_date
+                  ).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} bet for batch delete`}
+                  className="h-4 w-4 shrink-0"
+                />
+                <Link href={`/bets/${bet.id}`} className="min-w-0 flex-1 hover:opacity-80">
+                  <div className="font-medium text-white">
+                    {playerNameById.get(bet.player_id) ?? "Unknown player"} ·{" "}
+                    {bookmakerNameById.get(bet.bookmaker_id) ?? "Unknown bookmaker"}
+                  </div>
+                  <div className="text-sm text-white/50">
+                    {new Date(bet.bet_date).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}{" "}
+                    · £{Number(bet.stake).toFixed(2)} stake · £{Number(bet.slip_return_amount).toFixed(2)}{" "}
+                    potential return
+                  </div>
+                </Link>
+                <span
+                  className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${
+                    STATUS_STYLES[bet.status] ?? "border-white/20 text-white/70"
+                  }`}
+                >
+                  {STATUS_LABELS[bet.status] ?? bet.status}
+                </span>
+                <Link
+                  href={`/admin/bets/${bet.id}`}
+                  className="min-h-[36px] shrink-0 flex items-center rounded border border-accent/60 px-3 text-sm font-medium text-accent hover:bg-accent/10"
+                >
+                  Settle
+                </Link>
+                <DeleteBetButton
+                  betId={bet.id}
+                  label={`${playerNameById.get(bet.player_id) ?? "Unknown"} · ${new Date(
+                    bet.bet_date
+                  ).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}
+                />
+              </div>
+            ))}
+          </div>
+        </form>
       )}
     </div>
   );
