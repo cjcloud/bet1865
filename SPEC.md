@@ -1,7 +1,12 @@
 # Bet1865 — Project Specification
 
-Version 1.10 — 30 August 2026
+Version 1.11 — 30 August 2026
 Owner / Admin: CJ
+
+**Changelog (v1.11, 30 Aug 2026)**: Added a **Home / intro screen** at `/` — an
+intro banner video plays once (mutable/skippable), then reveals Ranking and
+View Slips buttons. The betc\*nt leaderboard itself moved from `/` to
+`/ranking` to make room for this. See the updated §6.1 below.
 
 **Changelog (v1.10, 30 Aug 2026)**: Clarified §3 point 5 and the Rules page to spell
 out what the WhatsApp slip photo should show — the fixtures, the odds, the stake,
@@ -586,26 +591,32 @@ rankings automatically, with no separate recompute step.
 
 ### 6.1 Pages
 
-1. **Rules** (`/rules`) — renders §3 and §4 of this document (kept as structured
+1. **Home** (`/`, **v1.11**) — the landing screen: plays a short intro banner
+   video once (autoplaying muted, per browser autoplay rules), then reveals
+   two buttons, **Ranking** and **View Slips**. A "Skip intro" link is shown
+   throughout so a repeat visitor isn't forced to sit through it every time,
+   and the buttons also appear if the video fails to load. Purely a front
+   door — no data, no auth check beyond the shared nav.
+2. **Rules** (`/rules`) — renders §3 and §4 of this document (kept as structured
    content, e.g. MDX or a CMS-style table in the DB, so it can be edited without a
    redeploy).
-2. **Upload** (`/admin/upload`, **admin-only, v1.5**) — the admin picks the player
+3. **Upload** (`/admin/upload`, **admin-only, v1.5**) — the admin picks the player
    from the fixed dropdown, picks the bookmaker (or types a new one), and uploads
    the slip screenshot the player posted in WhatsApp. The app shows the
    AI-extracted fields for a quick eyeball-confirm before saving, with plain
    league and kick-off date/time fields per leg to fill in by hand (§3.12a). On
    successful save, the admin lands on that bet's Admin settlement page.
-3. **View Slips** (`/bets`) — every uploaded slip, browsable by player, each opening
+4. **View Slips** (`/bets`) — every uploaded slip, browsable by player, each opening
    to a read-only view of that slip (image + extracted legs, with the same red-flag
    badge as the confirm screen for any leg priced under evens). Public, no auth —
    this is where a general user checks what's been recorded so far; no edit/upload
    controls are shown here (those are admin-only, under `/admin`).
-4. **Ranking** (`/`) — the betc\*nt leaderboard: table of all 6 players sorted per
-   §4 (highest betc\*nt count — most COTW's — first, ties broken by win\* count
-   then Prediction Score, v1.8), plus a per-player detail view (bet history, win
-   rate, current streak) and simple charts (betc\*nt count over time, legs-won
-   distribution).
-5. **Admin** (`/admin`, auth-required, **hidden from general users, v1.5**) —
+5. **Ranking** (`/ranking`, **moved from `/` in v1.11**) — the betc\*nt
+   leaderboard: table of all 6 players sorted per §4 (highest betc\*nt count —
+   most COTW's — first, ties broken by win\* count then Prediction Score, v1.8),
+   plus a per-player detail view (bet history, win rate, current streak) and
+   simple charts (betc\*nt count over time, legs-won distribution).
+6. **Admin** (`/admin`, auth-required, **hidden from general users, v1.5**) —
    uploading a slip (see "Upload" above); full CRUD on bets/legs/players/
    bookmakers; **per-leg Won/Lost/Void controls to register results (§3.9a)** —
    for a Betfair-sourced leg this is a direct transcription of Betfair's own
