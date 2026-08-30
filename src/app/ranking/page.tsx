@@ -45,12 +45,11 @@ export default async function RankingPage() {
       <div>
         <h1 className="text-2xl font-bold text-accent">betc*nt Ranking</h1>
         <p className="text-white/70">
-          Most betc*nt count sits at the top — that&apos;s your number of COTW&apos;s. Ties break
-          on win* count, then Prediction Score. See{" "}
+          See the{" "}
           <Link href="/rules" className="underline hover:text-accent">
-            the Rules
+            rules
           </Link>{" "}
-          for how it&apos;s scored.
+          for how this is scored.
         </p>
       </div>
 
