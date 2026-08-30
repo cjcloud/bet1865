@@ -112,7 +112,7 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
 
   const { data: bets } = await supabase
     .from("bets")
-    .select("id, bet_date, status, reconciliation, winnings, stake, bookmaker_id, created_at")
+    .select("id, bet_date, status, reconciliation, winnings, stake, bookmaker_id, win_star, created_at")
     .eq("player_id", params.id)
     .order("bet_date", { ascending: true })
     .order("created_at", { ascending: true });
@@ -147,6 +147,10 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
   const betsWon = scoredBets.filter((b) => b.status === "won").length;
   const betsSettled = scoredBets.length;
   const rate = winRate(betsWon, betsSettled);
+  // win* count (v1.8) - mirrors player_rankings.win_star_count: how many of
+  // this player's scored bets were won only via Betfair's 90-minute rule
+  // on at least one leg (SPEC.md §3 point 8, §4).
+  const winStarCount = scoredBets.filter((b) => b.win_star).length;
 
   const streakInputs: SettledStatus[] = [...scoredBets].reverse().map((b) => b.status as SettledStatus);
   const streak = computeStreak(streakInputs);
@@ -177,7 +181,7 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <div className="rounded border border-white/10 bg-surface px-3 py-2">
           <div className="text-xs text-white/50">Bets played</div>
           <div className="text-lg font-semibold text-white">{betsSettled}</div>
@@ -197,6 +201,10 @@ export default async function PlayerDetailPage({ params }: { params: { id: strin
           <div className="text-lg font-semibold text-white">
             {cumulativePrimary[cumulativePrimary.length - 1] ?? 0}
           </div>
+        </div>
+        <div className="rounded border border-white/10 bg-surface px-3 py-2">
+          <div className="text-xs text-white/50">Win*</div>
+          <div className="text-lg font-semibold text-white">{winStarCount}</div>
         </div>
         <div className="rounded border border-white/10 bg-surface px-3 py-2">
           <div className="text-xs text-white/50">Prediction Score</div>
