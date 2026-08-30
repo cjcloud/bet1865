@@ -138,44 +138,87 @@ export default async function BetDetailPage({ params }: { params: { id: string }
             </p>
           )}
 
-          {(legs ?? []).map((leg) => (
-            <div key={leg.id} className="rounded border border-white/10 bg-surface p-4 space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-white/70">Leg {leg.leg_number}</span>
-                <div className="flex items-center gap-2">
-                  {isBelowMinimumOdds(Number(leg.odds)) && (
-                    <span className="rounded bg-red-500/20 border border-red-500/50 px-2 py-0.5 text-xs font-semibold text-red-300">
-                      RED FLAG — below evens
+          {(legs ?? []).map((leg) => {
+            // Selection name, Betfair-slip style: the team actually backed
+            // (or "Draw"), not just "home v away" — mirrors how the
+            // Betfair app itself labels each leg of a settled bet.
+            const pickLabel =
+              leg.predicted_outcome === "HOME_WIN"
+                ? leg.home_team
+                : leg.predicted_outcome === "AWAY_WIN"
+                ? leg.away_team
+                : "Draw";
+            const hasFullTimeScore = leg.score_home_ft !== null && leg.score_away_ft !== null;
+
+            return (
+              <div key={leg.id} className="rounded-lg border border-white/10 bg-surface p-4 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-white/40">
+                  Leg {leg.leg_number}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-base font-bold text-white">{pickLabel}</span>
+                    <span className="whitespace-nowrap text-base font-bold text-white">
+                      @ {Number(leg.odds).toFixed(2)}
                     </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-white/50">{LEAGUE_LABELS[leg.league] ?? leg.league}</span>
+                    <div className="flex items-center gap-2">
+                      {isBelowMinimumOdds(Number(leg.odds)) && (
+                        <span className="rounded bg-red-500/20 border border-red-500/50 px-2 py-0.5 text-xs font-semibold text-red-300">
+                          RED FLAG — below evens
+                        </span>
+                      )}
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                          LEG_STATUS_STYLES[leg.status] ?? "border border-white/20 text-white/70"
+                        }`}
+                      >
+                        {LEG_STATUS_LABELS[leg.status] ?? leg.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fixture card, Betfair-slip style: home/away stacked on the
+                    left, an "FT" full-time score in green boxes on the right
+                    once the admin has entered one (SPEC.md — score_home_ft /
+                    score_away_ft are optional, admin's own record-keeping). */}
+                <div className="flex items-center justify-between gap-3 rounded-md bg-black/30 p-3">
+                  <div className="space-y-2 text-sm text-white">
+                    <div>{leg.home_team}</div>
+                    <div>{leg.away_team}</div>
+                  </div>
+                  {hasFullTimeScore && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-green-400">FT</span>
+                      <div className="flex flex-col gap-1">
+                        <span className="flex h-6 w-6 items-center justify-center rounded bg-green-600 text-sm font-bold text-white">
+                          {leg.score_home_ft}
+                        </span>
+                        <span className="flex h-6 w-6 items-center justify-center rounded bg-green-600 text-sm font-bold text-white">
+                          {leg.score_away_ft}
+                        </span>
+                      </div>
+                    </div>
                   )}
-                  <span
-                    className={`rounded border px-2 py-0.5 text-xs font-semibold ${
-                      LEG_STATUS_STYLES[leg.status] ?? "border-white/20 text-white/70"
-                    }`}
-                  >
-                    {LEG_STATUS_LABELS[leg.status] ?? leg.status}
-                  </span>
+                </div>
+
+                <div className="text-xs text-white/50">
+                  {OUTCOME_LABELS[leg.predicted_outcome] ?? leg.predicted_outcome} ·{" "}
+                  {new Date(leg.match_datetime).toLocaleString("en-GB", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </div>
               </div>
-              <div className="text-white">
-                {leg.home_team} v {leg.away_team}
-              </div>
-              <div className="text-sm text-white/60">
-                {LEAGUE_LABELS[leg.league] ?? leg.league} ·{" "}
-                {new Date(leg.match_datetime).toLocaleString("en-GB", {
-                  weekday: "short",
-                  day: "numeric",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </div>
-              <div className="text-sm text-white/60">
-                Betting on: {OUTCOME_LABELS[leg.predicted_outcome] ?? leg.predicted_outcome} @{" "}
-                {Number(leg.odds).toFixed(2)}
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
         </div>
       </div>
