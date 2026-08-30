@@ -1,7 +1,16 @@
 # Bet1865 — Project Specification
 
-Version 1.13 — 30 August 2026
+Version 1.14 — 30 August 2026
 Owner / Admin: CJ
+
+**Changelog (v1.14, 30 Aug 2026)**: Added a fourth, final Ranking tiebreak —
+alphabetical by name — for players who are tied 0/0/0 across betc\*nt count,
+win\* count, and Prediction Score (i.e. a player with no bets recorded yet).
+Previously this exact tie fell back to whatever incidental order Supabase
+returned; CJ asked for it to be a stable, predictable alphabetical order
+instead, with the existing score-based rules taking over the moment a player
+actually has a bet recorded (their scores will then normally differ from
+0/0/0). See the updated §4 below.
 
 **Changelog (v1.13, 30 Aug 2026)**: Fixed a gap from v1.8's win\* rollout — the
 per-player drill-down page (`/player/[id]`) never gained a win\* stat tile, so a
@@ -417,12 +426,16 @@ count**)
 
 The Ranking table sorts by betc\*nt count **descending** — the player with the
 **highest** betc\*nt count (the most COTW's) is listed **first**. Ties break up to
-two levels deeper (v1.8): first by win\* count **descending** (among players level
-on betc\*nt count, the one with the *more* win\* bets — the less convincing wins —
-ranks higher/worse), then, if still level, by Prediction Score **ascending** (the
-one with the *lower* Prediction Score — the worse predictor — ranks higher/worse),
-keeping the whole table consistently worst-to-best. Both scores, the win\* count,
-plus bets played, win rate, and current streak, are shown per player.
+three levels deeper: first by win\* count **descending** (v1.8; among players
+level on betc\*nt count, the one with the *more* win\* bets — the less
+convincing wins — ranks higher/worse), then, if still level, by Prediction
+Score **ascending** (the one with the *lower* Prediction Score — the worse
+predictor — ranks higher/worse), then, if *still* level, alphabetically by
+player **name** (v1.14) — in practice this last tiebreak only ever fires for
+players tied 0/0/0 across all three score fields, i.e. players with no bets
+recorded yet, giving them a stable order (Chris, Clive, Dingle, John, Moony,
+Simon) rather than an arbitrary one. Both scores, the win\* count, plus bets
+played, win rate, and current streak, are shown per player.
 
 ### Worked example
 
