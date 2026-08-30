@@ -25,7 +25,12 @@ interface RankingRow {
 // the more shameful showing, so a HIGHER win* count sits above/worse — see
 // SPEC.md §3.8/§4), then Prediction Score (fewest leg wins among tied
 // players is the more shameful showing, so a LOWER Prediction Score sits
-// above/worse).
+// above/worse). A player with no bets recorded yet has 0/0/0 across all
+// three, so a final alphabetical-by-name tiebreak (30 Aug 2026) keeps that
+// group in a stable, predictable order rather than whatever incidental
+// order the database happens to return for an exact tie — the moment a
+// player has a bet, their scores will normally differ from 0/0/0 and the
+// three score-based rules above take over as usual.
 export default async function RankingPage() {
   const supabase = createClient();
 
@@ -35,6 +40,7 @@ export default async function RankingPage() {
     .order("primary_score", { ascending: false })
     .order("win_star_count", { ascending: false })
     .order("secondary_score", { ascending: true })
+    .order("name", { ascending: true })
     .returns<RankingRow[]>();
 
   const rows = rankings ?? [];
