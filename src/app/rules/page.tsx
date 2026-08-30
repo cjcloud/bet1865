@@ -52,15 +52,10 @@ export default function RulesPage() {
           </li>
           <li>
             <strong>Betfair Exchange special case</strong> — applies only to legs placed with
-            Betfair Exchange. Betfair settles in-play bets on the match state at the 90-minute mark
-            (end of normal time): a leg winning at 90 minutes stays a win even if the score changes
-            again in stoppage time, and a leg losing at 90 minutes but ahead by full time is still
-            settled as a win. Every other bookmaker settles on the plain full-time result — no
-            90-minute nuance applies. When a leg only wins because of this rule — i.e. it would
-            have <strong>lost</strong> on the actual full-time score — the admin flags it on
-            settlement, and any bet containing at least one such leg is marked a{" "}
-            <strong>win*</strong>. A win* still counts as a full win for betc*nt/Prediction Score
-            purposes; win* only comes into play as a tiebreaker (see Scoring, below).
+            Betfair Exchange. Betfair settles in-play bets on the match state at the 90-minute
+            mark (end of normal time) and at full-time. This improves the win rate of a bet.
+            Bets that have been successful using this feature on Betfair are indicated in the{" "}
+            <strong>win*</strong> column.
           </li>
         </ol>
       </section>
@@ -68,14 +63,9 @@ export default function RulesPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-white">Scoring — the betc*nt table</h2>
         <p className="text-sm text-white/70">
-          Every player starts at 0/0. The Ranking table lists players by betc*nt count, highest
-          first — that&apos;s your number of COTW&apos;s. Ties are broken up to two further levels
-          deep. First, by win* count: a higher betc*nt count means lower betting acumen, and racking
-          up wins via the 90-minute rule (rather than winning cleanly) is treated the same way, so on
-          a tie the player with the <em>higher</em> win* count ranks above the one with the lower
-          win* count. If both betc*nt count and win* count are level, Prediction Score decides it:
-          the player with the <em>lower</em> Prediction Score (the worse predictor) ranks above the
-          one with the higher Prediction Score.
+          The ranking in the betc*nt table is determined by the betc*nt count (formerly COTW).
+          Tiebreaks are determined by Win* (number of wins won late in the game) and Prediction
+          Score (number of legs successfully predicted).
         </p>
 
         <div className="rounded border border-white/10 bg-surface p-4">
