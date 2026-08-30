@@ -89,3 +89,22 @@ export function clearReconciliation(legStatuses: LegStatus[], slipReturnAmount: 
 } {
   return { ...deriveBetRollup(legStatuses, slipReturnAmount), reconciliation: "standard" };
 }
+
+export interface LegWinStarInput {
+  status: LegStatus;
+  settledVia90MinRule: boolean;
+}
+
+/**
+ * §3.8 / §4 — a "win*" flags a bet won at least partly because a leg was
+ * settled as a win under Betfair's 90-minute rule (the prediction was
+ * satisfied at the 90-minute mark but would NOT have been satisfied by the
+ * actual full-time result). Only meaningful when the bet's overall status
+ * is "won" — a lost or void bet is never a win*, whatever the individual
+ * legs' flags say. Used purely as a Ranking-table tiebreak signal (see
+ * player_rankings.win_star_count); it does not affect winnings or status.
+ */
+export function deriveWinStar(betStatus: BetStatus, legs: LegWinStarInput[]): boolean {
+  if (betStatus !== "won") return false;
+  return legs.some((leg) => leg.status === "won" && leg.settledVia90MinRule);
+}

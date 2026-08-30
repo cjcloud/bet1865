@@ -191,10 +191,25 @@ export default async function AdminBetDetailPage({ params }: { params: { id: str
               </div>
 
               {bookmaker?.is_betfair_exchange && (
-                <p className="text-xs text-white/50 italic">
-                  Betfair applies its own 90-minute rule — enter the status as settled on Betfair,
-                  don&apos;t work it out from the scoreline yourself (SPEC.md §3.8).
-                </p>
+                <div className="space-y-2">
+                  <p className="text-xs text-white/50 italic">
+                    Betfair applies its own 90-minute rule — enter the status as settled on Betfair,
+                    don&apos;t work it out from the scoreline yourself (SPEC.md §3.8).
+                  </p>
+                  <label className="flex items-start gap-2 text-xs text-white/70">
+                    <input
+                      type="checkbox"
+                      name={`leg_${leg.leg_number}_settled_via_90min_rule`}
+                      defaultChecked={leg.settled_via_90min_rule}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      This leg only won because of the 90-minute rule — it would have{" "}
+                      <span className="font-semibold">lost</span> on the actual full-time result
+                      (marks the bet as a win* if the bet is won — SPEC.md §4).
+                    </span>
+                  </label>
+                </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">

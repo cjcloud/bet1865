@@ -7,6 +7,7 @@ import {
   applyVoidReconciliation,
   clearReconciliation,
   deriveBetRollup,
+  deriveWinStar,
   hasVoidLeg,
   type LegStatus,
 } from "@/lib/settlement";
@@ -73,6 +74,10 @@ export async function updateLegStatusAction(legNumber: number, status: LegStatus
   const settlementNotes = formData.get(`leg_${legNumber}_settlement_notes`);
   const scoreHomeFt = formData.get(`leg_${legNumber}_score_home_ft`);
   const scoreAwayFt = formData.get(`leg_${legNumber}_score_away_ft`);
+  // Only meaningful (and only ever shown to the admin) on a Won leg — force
+  // it false otherwise so a stale checked box from before a Lost/Void
+  // re-pick can't linger (SPEC.md §3.8/§4).
+  const settledVia90MinRule = status === "won" && formData.get(`leg_${legNumber}_settled_via_90min_rule`) === "on";
 
   const { error: legUpdateError } = await supabase
     .from("bet_legs")
@@ -84,6 +89,7 @@ export async function updateLegStatusAction(legNumber: number, status: LegStatus
       score_away_ft:
         typeof scoreAwayFt === "string" && scoreAwayFt !== "" ? Number(scoreAwayFt) : null,
       settled_at: status === "won" || status === "lost" ? new Date().toISOString() : null,
+      settled_via_90min_rule: settledVia90MinRule,
     })
     .eq("bet_id", betId)
     .eq("leg_number", legNumber);
@@ -102,7 +108,7 @@ export async function updateLegStatusAction(legNumber: number, status: LegStatus
 
   const { data: legsAfter } = await supabase
     .from("bet_legs")
-    .select("status")
+    .select("status, settled_via_90min_rule")
     .eq("bet_id", betId)
     .order("leg_number");
 
@@ -118,12 +124,21 @@ export async function updateLegStatusAction(legNumber: number, status: LegStatus
       ? clearReconciliation(legStatuses, Number(bet.slip_return_amount))
       : { ...deriveBetRollup(legStatuses, Number(bet.slip_return_amount)), reconciliation: "standard" as const };
 
+    const winStar = deriveWinStar(
+      rollup.status,
+      (legsAfter ?? []).map((l) => ({
+        status: l.status as LegStatus,
+        settledVia90MinRule: Boolean(l.settled_via_90min_rule),
+      }))
+    );
+
     const { error: betUpdateError } = await supabase
       .from("bets")
       .update({
         status: rollup.status,
         winnings: rollup.winnings,
         reconciliation: rollup.reconciliation,
+        win_star: winStar,
         updated_at: new Date().toISOString(),
       })
       .eq("id", betId);
@@ -132,13 +147,17 @@ export async function updateLegStatusAction(legNumber: number, status: LegStatus
       throw new Error(`Failed to update bet status: ${betUpdateError.message}`);
     }
 
-    if (rollup.status !== bet.status || Number(rollup.winnings) !== Number(bet.winnings)) {
+    if (
+      rollup.status !== bet.status ||
+      Number(rollup.winnings) !== Number(bet.winnings) ||
+      winStar !== bet.win_star
+    ) {
       await logAudit(supabase, {
         entity_type: "bet",
         entity_id: betId,
         field_changed: "status",
-        old_value: JSON.stringify({ status: bet.status, winnings: bet.winnings }),
-        new_value: JSON.stringify({ status: rollup.status, winnings: rollup.winnings }),
+        old_value: JSON.stringify({ status: bet.status, winnings: bet.winnings, win_star: bet.win_star }),
+        new_value: JSON.stringify({ status: rollup.status, winnings: rollup.winnings, win_star: winStar }),
       });
     }
   }
@@ -171,7 +190,7 @@ export async function voidReconciliationAction(formData: FormData) {
 
   const { data: legs } = await supabase
     .from("bet_legs")
-    .select("status")
+    .select("status, settled_via_90min_rule")
     .eq("bet_id", betId);
   const legStatuses = (legs ?? []).map((l) => l.status as LegStatus);
 
@@ -187,12 +206,24 @@ export async function voidReconciliationAction(formData: FormData) {
           amount: Number(str(formData.get("bookmaker_return_amount")) || 0),
         });
 
+  // manual_bookmaker_return can also settle a bet as "won" (§3.7a), so the
+  // win* flag still needs deriving here — void_whole_bet always yields
+  // status "void", for which deriveWinStar is false regardless.
+  const winStar = deriveWinStar(
+    result.status,
+    (legs ?? []).map((l) => ({
+      status: l.status as LegStatus,
+      settledVia90MinRule: Boolean(l.settled_via_90min_rule),
+    }))
+  );
+
   const { error: updateError } = await supabase
     .from("bets")
     .update({
       status: result.status,
       winnings: result.winnings,
       reconciliation: result.reconciliation,
+      win_star: winStar,
       updated_at: new Date().toISOString(),
     })
     .eq("id", betId);

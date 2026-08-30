@@ -3,6 +3,7 @@ import {
   applyVoidReconciliation,
   clearReconciliation,
   deriveBetRollup,
+  deriveWinStar,
   hasVoidLeg,
 } from "./settlement";
 
@@ -98,5 +99,55 @@ describe("clearReconciliation", () => {
       winnings: null,
       reconciliation: "standard",
     });
+  });
+});
+
+describe("deriveWinStar", () => {
+  it("is false whenever the bet's overall status isn't won, regardless of leg flags", () => {
+    expect(
+      deriveWinStar("lost", [
+        { status: "lost", settledVia90MinRule: false },
+        { status: "won", settledVia90MinRule: true },
+        { status: "won", settledVia90MinRule: false },
+      ])
+    ).toBe(false);
+    expect(
+      deriveWinStar("pending_settlement", [
+        { status: "won", settledVia90MinRule: true },
+        { status: "pending", settledVia90MinRule: false },
+        { status: "pending", settledVia90MinRule: false },
+      ])
+    ).toBe(false);
+    expect(deriveWinStar("void", [{ status: "won", settledVia90MinRule: true }])).toBe(false);
+  });
+
+  it("is false on a won bet when no leg was settled via the 90-minute rule", () => {
+    expect(
+      deriveWinStar("won", [
+        { status: "won", settledVia90MinRule: false },
+        { status: "won", settledVia90MinRule: false },
+        { status: "won", settledVia90MinRule: false },
+      ])
+    ).toBe(false);
+  });
+
+  it("is true on a won bet when any single leg was settled via the 90-minute rule", () => {
+    expect(
+      deriveWinStar("won", [
+        { status: "won", settledVia90MinRule: false },
+        { status: "won", settledVia90MinRule: true },
+        { status: "won", settledVia90MinRule: false },
+      ])
+    ).toBe(true);
+  });
+
+  it("only counts the flag on legs that actually won — a flagged lost/void leg on an otherwise-won bet doesn't apply (bet wouldn't be 'won' in that case anyway)", () => {
+    expect(
+      deriveWinStar("won", [
+        { status: "won", settledVia90MinRule: true },
+        { status: "won", settledVia90MinRule: true },
+        { status: "won", settledVia90MinRule: true },
+      ])
+    ).toBe(true);
   });
 });

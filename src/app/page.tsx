@@ -8,6 +8,7 @@ interface RankingRow {
   player_id: string;
   name: string;
   primary_score: number;
+  win_star_count: number;
   secondary_score: number;
   bets_settled: number;
   bets_won: number;
@@ -19,16 +20,20 @@ interface RankingRow {
 // from both scores and the bets-played/win-rate denominator (migration
 // 0005). Sort order is set explicitly here (not left to the view's own
 // default) so it's obvious at a glance what this page shows: the biggest
-// betc*nt — most COTW's — sits at the top, with Prediction Score breaking a
-// tie the other way round for the same reason (fewest leg wins among tied
-// players is the more shameful showing).
+// betc*nt — most COTW's — sits at the top. Ties break three levels deep:
+// win* count first (more wins earned only via Betfair's 90-minute rule is
+// the more shameful showing, so a HIGHER win* count sits above/worse — see
+// SPEC.md §3.8/§4), then Prediction Score (fewest leg wins among tied
+// players is the more shameful showing, so a LOWER Prediction Score sits
+// above/worse).
 export default async function RankingPage() {
   const supabase = createClient();
 
   const { data: rankings } = await supabase
     .from("player_rankings")
-    .select("player_id, name, primary_score, secondary_score, bets_settled, bets_won")
+    .select("player_id, name, primary_score, win_star_count, secondary_score, bets_settled, bets_won")
     .order("primary_score", { ascending: false })
+    .order("win_star_count", { ascending: false })
     .order("secondary_score", { ascending: true })
     .returns<RankingRow[]>();
 
@@ -40,8 +45,8 @@ export default async function RankingPage() {
       <div>
         <h1 className="text-2xl font-bold text-accent">betc*nt Ranking</h1>
         <p className="text-white/70">
-          Most betc*nt count sits at the top — that&apos;s your number of COTW&apos;s. Prediction
-          Score breaks a tie. See{" "}
+          Most betc*nt count sits at the top — that&apos;s your number of COTW&apos;s. Ties break
+          on win* count, then Prediction Score. See{" "}
           <Link href="/rules" className="underline hover:text-accent">
             the Rules
           </Link>{" "}
@@ -61,6 +66,10 @@ export default async function RankingPage() {
                 <th className="px-4 py-3 font-medium text-right">
                   betc*nt
                   <div className="text-[10px] font-normal normal-case text-white/40">(COTW&apos;s)</div>
+                </th>
+                <th className="px-4 py-3 font-medium text-right">
+                  Win*
+                  <div className="text-[10px] font-normal normal-case text-white/40">(90-min wins)</div>
                 </th>
                 <th className="px-4 py-3 font-medium text-right">Prediction Score</th>
                 <th className="px-4 py-3 font-medium text-right">Played</th>
@@ -93,6 +102,7 @@ export default async function RankingPage() {
                         />
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-right text-white/60">{row.win_star_count}</td>
                     <td className="px-4 py-3 text-right text-white/80">{row.secondary_score}</td>
                     <td className="px-4 py-3 text-right text-white/60">{row.bets_settled}</td>
                     <td className="px-4 py-3 text-right text-white/60">

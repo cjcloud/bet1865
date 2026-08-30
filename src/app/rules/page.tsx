@@ -52,7 +52,11 @@ export default function RulesPage() {
             (end of normal time): a leg winning at 90 minutes stays a win even if the score changes
             again in stoppage time, and a leg losing at 90 minutes but ahead by full time is still
             settled as a win. Every other bookmaker settles on the plain full-time result — no
-            90-minute nuance applies.
+            90-minute nuance applies. When a leg only wins because of this rule — i.e. it would
+            have <strong>lost</strong> on the actual full-time score — the admin flags it on
+            settlement, and any bet containing at least one such leg is marked a{" "}
+            <strong>win*</strong>. A win* still counts as a full win for betc*nt/Prediction Score
+            purposes; win* only comes into play as a tiebreaker (see Scoring, below).
           </li>
         </ol>
       </section>
@@ -60,10 +64,13 @@ export default function RulesPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-white">Scoring — the betc*nt table</h2>
         <p className="text-sm text-white/70">
-          Every player starts at 0/0. Two scores are tracked. The Ranking table lists players by
-          betc*nt count, highest first — that&apos;s your number of COTW&apos;s — with Prediction
-          Score breaking a tie: a higher betc*nt count means lower betting acumen, so on a tie the
-          player with the <em>lower</em> Prediction Score (the worse predictor) ranks above the
+          Every player starts at 0/0. The Ranking table lists players by betc*nt count, highest
+          first — that&apos;s your number of COTW&apos;s. Ties are broken up to two further levels
+          deep. First, by win* count: a higher betc*nt count means lower betting acumen, and racking
+          up wins via the 90-minute rule (rather than winning cleanly) is treated the same way, so on
+          a tie the player with the <em>higher</em> win* count ranks above the one with the lower
+          win* count. If both betc*nt count and win* count are level, Prediction Score decides it:
+          the player with the <em>lower</em> Prediction Score (the worse predictor) ranks above the
           one with the higher Prediction Score.
         </p>
 
@@ -79,11 +86,28 @@ export default function RulesPage() {
         </div>
 
         <div className="rounded border border-white/10 bg-surface p-4">
-          <h3 className="font-medium text-white">Prediction Score (tiebreaker)</h3>
+          <h3 className="font-medium text-white">Win* (first tiebreaker)</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/70 marker:text-accent">
             <li>
-              Breaks a tie between players level on betc*nt count — the lower Prediction Score
-              ranks above the higher one, in keeping with a higher position meaning lower success.
+              Only relevant on a Betfair Exchange leg that won because of the 90-minute rule while
+              it would have lost on the actual full-time score (see The game, above).
+            </li>
+            <li>A bet is a win* if it won and at least one of its legs won this way.</li>
+            <li>
+              Breaks a tie between players level on betc*nt count — the player with more win*
+              bets ranks above (worse than) one with fewer, since a win* is a less convincing win
+              than a clean one.
+            </li>
+          </ul>
+        </div>
+
+        <div className="rounded border border-white/10 bg-surface p-4">
+          <h3 className="font-medium text-white">Prediction Score (second tiebreaker)</h3>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/70 marker:text-accent">
+            <li>
+              Breaks a tie between players level on both betc*nt count and win* count — the lower
+              Prediction Score ranks above the higher one, in keeping with a higher position
+              meaning lower success.
             </li>
             <li>+1 for every individual leg that wins, across all bets (0-3 per bet).</li>
             <li>
@@ -103,6 +127,7 @@ export default function RulesPage() {
                 <th className="px-4 py-2 font-medium">Legs won</th>
                 <th className="px-4 py-2 font-medium">Result</th>
                 <th className="px-4 py-2 font-medium text-right">betc*nt</th>
+                <th className="px-4 py-2 font-medium text-right">Win*</th>
                 <th className="px-4 py-2 font-medium text-right">Prediction Score</th>
               </tr>
             </thead>
@@ -112,6 +137,7 @@ export default function RulesPage() {
                 <td className="px-4 py-2">3/3</td>
                 <td className="px-4 py-2">Won</td>
                 <td className="px-4 py-2 text-right">+0</td>
+                <td className="px-4 py-2 text-right">—</td>
                 <td className="px-4 py-2 text-right">+5</td>
               </tr>
               <tr className="border-b border-white/5">
@@ -119,6 +145,7 @@ export default function RulesPage() {
                 <td className="px-4 py-2">2/3</td>
                 <td className="px-4 py-2">Lost</td>
                 <td className="px-4 py-2 text-right">+1</td>
+                <td className="px-4 py-2 text-right">—</td>
                 <td className="px-4 py-2 text-right">+2</td>
               </tr>
               <tr className="border-b border-white/5">
@@ -126,19 +153,21 @@ export default function RulesPage() {
                 <td className="px-4 py-2">0/3</td>
                 <td className="px-4 py-2">Lost</td>
                 <td className="px-4 py-2 text-right">+1</td>
+                <td className="px-4 py-2 text-right">—</td>
                 <td className="px-4 py-2 text-right">+0</td>
               </tr>
               <tr>
                 <td className="px-4 py-2">4</td>
-                <td className="px-4 py-2">3/3</td>
-                <td className="px-4 py-2">Won</td>
+                <td className="px-4 py-2">3/3 (1 via 90-min rule)</td>
+                <td className="px-4 py-2">Won*</td>
                 <td className="px-4 py-2 text-right">+0</td>
+                <td className="px-4 py-2 text-right">win*</td>
                 <td className="px-4 py-2 text-right">+5</td>
               </tr>
             </tbody>
           </table>
           <p className="px-4 pb-3 pt-2 text-xs text-white/50">
-            Totals after 4 bets: betc*nt count = 2, Prediction Score = 12.
+            Totals after 4 bets: betc*nt count = 2, win* count = 1, Prediction Score = 12.
           </p>
         </div>
       </section>

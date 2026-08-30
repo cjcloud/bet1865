@@ -1,7 +1,9 @@
 # Bet1865 — Project Specification
 
-Version 1.7 — 30 August 2026
+Version 1.8 — 30 August 2026
 Owner / Admin: CJ
+
+**Changelog (v1.8, 30 Aug 2026)**: Added the **win\*** feature, per CJ's request. A Betfair Exchange leg can win purely because of §3.8's 90-minute rule — i.e. it would have *lost* on the actual full-time result. Since the betc\*nt score is loss-based, this kind of win can flatter a player's betc\*nt count more than a "clean" win would, so it's now tracked as a tiebreaker signal: `bet_legs.settled_via_90min_rule` (admin-set on settlement, §3.9a) and `bets.win_star` (derived, §4) are new columns (migration `0008_win_star.sql`), and the Ranking table's tiebreak is now three levels deep — betc\*nt count, then win\* count, then Prediction Score (§4). See the updated §3.8, §3.9a, §4, §5, and §6.1 below.
 
 **Changelog (v1.7, 30 Aug 2026)**: CJ asked for the two domestic cup competitions to be added as eligible competitions for a leg (§3 point 2). `league_code` gains two new enum values, `FA_CUP` and `EFL_CUP` (migration `0007_add_cup_leagues.sql`), and the AI slip-extraction prompt, the admin's league dropdown, and every page that renders a league label were updated together so a cup-tie leg can be entered end-to-end, not just described here. §3.12a's earlier statement that a cup fixture is "not a valid leg" is now superseded — see the updated wording there.
 
@@ -151,6 +153,15 @@ logic. Any change to this section must be mirrored on that page.
      (via the Betfair site/app) and enters the resulting Won or Lost into Bet1865.
      No scoreline reconstruction, no goal-timeline lookup, no judgement call — it's
      a direct transcription of Betfair's own settlement. See §3.9a.
+   - **win\* (v1.8)**: because a leg can be settled Won at 90 minutes while the
+     actual full-time result would **not** have satisfied the prediction, the app
+     separately tracks *how* a Betfair win happened. When registering a Betfair
+     leg as Won, the admin additionally flags whether it only won via this
+     90-minute rule (`bet_legs.settled_via_90min_rule`) — this **does** require a
+     one-off look at the full-time score, unlike the plain Won/Lost transcription
+     above. A bet is a **win\*** (`bets.win_star`) if it's won and at least one of
+     its legs carries this flag. win\* has no effect on winnings or on whether the
+     bet counts as won — it exists purely as a Ranking tiebreaker (§4).
 
 ### 3.7a Void legs — required admin reconciliation
 
@@ -214,7 +225,11 @@ registers each leg's outcome directly:
   - **Betfair-sourced leg**: the admin reads the leg's already-settled status
     straight off the Betfair website/app — which has already applied §3.8's
     90-minute rule — and enters that as Won or Lost. This is a transcription, not
-    a judgement call.
+    a judgement call. If it's registered Won, the admin also flags (v1.8) whether
+    it only won because of the 90-minute rule — i.e. the actual full-time result
+    would have lost — by checking the box against that leg; this sets
+    `bet_legs.settled_via_90min_rule` and feeds into the bet's win\* flag (§3.8,
+    §4).
   - **Every other bookmaker**: the admin determines Won/Lost from the conventional
     full-time result, from any result source they trust (BBC Sport, the
     bookmaker's own settled-bet record, etc.) — no 90-minute nuance applies.
@@ -316,7 +331,8 @@ for "no match found," now promoted to the only path:
 
 ## 4. Scoring — "betc\*nt" Ranking
 
-Every player starts each season at **0 / 0**. Two scores are tracked per player:
+Every player starts each season at **0 / 0**. Two scores, plus a win\* count
+(v1.8), are tracked per player:
 
 **betc\*nt count** (SPEC.md-internal name: primary score; a player's "number of
 COTW's" in-app)
@@ -332,8 +348,18 @@ COTW's" in-app)
   other settled bet — since by that point it has a real, bookmaker-confirmed
   outcome and return.
 
+**win\*** (v1.8; **first tiebreaker** whenever two or more players are level on
+betc\*nt count)
+- A bet is a win\* when it's won (`bets.status = 'won'`) and at least one of its
+  legs was flagged by the admin as won only via Betfair's 90-minute rule — it
+  would have **lost** on the actual full-time result (§3.8, §3.9a).
+- The win\* count is simply how many of a player's bets are win\*.
+- A win\* still counts as a completely normal win for betc\*nt count and
+  Prediction Score purposes — it only comes into play as this tiebreaker.
+
 **Prediction Score** (SPEC.md-internal name: secondary score; used as the
-**tiebreaker whenever two or more players are level on betc\*nt count**)
+**second tiebreaker, when players are level on both betc\*nt count and win\*
+count**)
 - +1 for **every individual leg that wins**, across all of that player's bets
   (0–3 per bet). A Void leg contributes neither a win nor a loss to this count —
   only the other legs' Won/Lost statuses count.
@@ -343,22 +369,24 @@ COTW's" in-app)
   qualify for this bonus, since not all three legs are Won.
 
 The Ranking table sorts by betc\*nt count **descending** — the player with the
-**highest** betc\*nt count (the most COTW's) is listed **first** — with Prediction
-Score **ascending** as the tiebreaker (among players level on betc\*nt count, the
-one with the *lower* Prediction Score — the worse predictor — ranks higher, keeping
-the whole table consistently worst-to-best). Both scores, plus bets played, win
-rate, and current streak, are shown per player.
+**highest** betc\*nt count (the most COTW's) is listed **first**. Ties break up to
+two levels deeper (v1.8): first by win\* count **descending** (among players level
+on betc\*nt count, the one with the *more* win\* bets — the less convincing wins —
+ranks higher/worse), then, if still level, by Prediction Score **ascending** (the
+one with the *lower* Prediction Score — the worse predictor — ranks higher/worse),
+keeping the whole table consistently worst-to-best. Both scores, the win\* count,
+plus bets played, win rate, and current streak, are shown per player.
 
 ### Worked example
 
-| Bet | Legs won | Bet result | betc\*nt Δ | Prediction Score Δ |
-|---|---|---|---|---|
-| 1 | 3/3 | Won | +0 | +3 (legs) +2 (bonus) = +5 |
-| 2 | 2/3 | Lost | +1 | +2 |
-| 3 | 0/3 | Lost | +1 | +0 |
-| 4 | 3/3 | Won | +0 | +5 |
+| Bet | Legs won | Bet result | betc\*nt Δ | win\* | Prediction Score Δ |
+|---|---|---|---|---|---|
+| 1 | 3/3 | Won | +0 | — | +3 (legs) +2 (bonus) = +5 |
+| 2 | 2/3 | Lost | +1 | — | +2 |
+| 3 | 0/3 | Lost | +1 | — | +0 |
+| 4 | 3/3 (1 leg via 90-min rule) | Won\* | +0 | win\* | +5 |
 
-Totals after 4 bets: betc\*nt count = 2, Prediction Score = 12.
+Totals after 4 bets: betc\*nt count = 2, win\* count = 1, Prediction Score = 12.
 
 ## 5. Data Model (Supabase / Postgres)
 
@@ -386,6 +414,12 @@ view's own default `ORDER BY` was flipped to match, but `primary_score`/
 **Changelog (v1.7)**: `league_code` gains `FA_CUP` and `EFL_CUP` (migration
 `0007_add_cup_leagues.sql`), per §3 point 2's expanded eligible-competition list.
 No other schema change.
+
+**Changelog (v1.8)**: added `bet_legs.settled_via_90min_rule` (admin-set, boolean,
+default false) and `bets.win_star` (derived, boolean, default false) — see §3.8,
+§3.9a, §4 (migration `0008_win_star.sql`). `player_rankings` is rebuilt to add a
+`win_star_count` column and to extend its default `ORDER BY` with
+`win_star_count desc` between `primary_score desc` and `secondary_score asc`.
 
 ```sql
 -- Fixed roster; seeded once, editable by admin
@@ -423,6 +457,7 @@ create table bets (
                                               -- stake (void refund), or the admin-entered
                                               -- bookmaker return (§3.7a)
   reconciliation      bet_reconciliation not null default 'standard', -- §3.7a, audit/reporting
+  win_star            boolean not null default false, -- derived, §3.8/§4 tiebreaker (v1.8)
   parsed_by_ai        boolean not null default true,
   ai_raw_response     jsonb,                 -- full Claude vision extraction, for audit
   admin_verified      boolean not null default false,
@@ -447,6 +482,7 @@ create table bet_legs (
   score_away_ft       smallint,
   settlement_notes    text,                  -- e.g. "per Betfair site settlement" (§3.9a)
   settled_at          timestamptz,
+  settled_via_90min_rule boolean not null default false, -- admin-set, Betfair legs only (§3.8/§3.9a, v1.8)
   admin_override      boolean not null default false,
   unique (bet_id, leg_number)
 );
@@ -465,15 +501,15 @@ create table admin_audit_log (
 ```
 
 A `player_rankings` view (or nightly materialized view) derives the betc\*nt
-count/Prediction Score from `bets`/`bet_legs` per §4, so scores are never stored
-redundantly — they're always recomputed from settled data (populated by admin
-entry, §3.9a, rather than an automated job). Per §4, the view excludes any bet with
-`reconciliation = 'voided_full_refund'` from both scores and from the bets-played/
-win-rate denominator, and its own default `ORDER BY` matches the app's Ranking
-page — betc\*nt count descending, Prediction Score ascending (v1.5). Because the
-view is always derived live from whichever `bets`/`bet_legs` rows currently exist,
-deleting a bet (§6.3) removes it from the rankings automatically, with no separate
-recompute step.
+count/win\* count/Prediction Score from `bets`/`bet_legs` per §4, so scores are
+never stored redundantly — they're always recomputed from settled data (populated
+by admin entry, §3.9a, rather than an automated job). Per §4, the view excludes any
+bet with `reconciliation = 'voided_full_refund'` from all three scores and from
+the bets-played/win-rate denominator, and its own default `ORDER BY` matches the
+app's Ranking page — betc\*nt count descending, win\* count descending, Prediction
+Score ascending (v1.8). Because the view is always derived live from whichever
+`bets`/`bet_legs` rows currently exist, deleting a bet (§6.3) removes it from the
+rankings automatically, with no separate recompute step.
 
 ## 6. Application Architecture
 
@@ -540,22 +576,25 @@ recompute step.
    this is where a general user checks what's been recorded so far; no edit/upload
    controls are shown here (those are admin-only, under `/admin`).
 4. **Ranking** (`/`) — the betc\*nt leaderboard: table of all 6 players sorted per
-   §4 (highest betc\*nt count — most COTW's — first, Prediction Score breaking a
-   tie), plus a per-player detail view (bet history, win rate, current streak) and
-   simple charts (betc\*nt count over time, legs-won distribution).
+   §4 (highest betc\*nt count — most COTW's — first, ties broken by win\* count
+   then Prediction Score, v1.8), plus a per-player detail view (bet history, win
+   rate, current streak) and simple charts (betc\*nt count over time, legs-won
+   distribution).
 5. **Admin** (`/admin`, auth-required, **hidden from general users, v1.5**) —
    uploading a slip (see "Upload" above); full CRUD on bets/legs/players/
    bookmakers; **per-leg Won/Lost/Void controls to register results (§3.9a)** —
    for a Betfair-sourced leg this is a direct transcription of Betfair's own
    settlement, for any other bookmaker it's the plain full-time result — with the
    bet's overall status/winnings recomputing immediately once all three legs are
-   Won/Lost; **a Void-leg reconciliation control (§3.7a)** that appears whenever a
-   bet has a Void leg, letting the admin either void the whole bet (full refund,
-   excluded from scoring) or type in the bookmaker's recalculated return; **amend
-   any bet or leg field, or delete a bet slip entirely (§6.3)**; every change
-   (including a delete) writes to an audit trail (`admin_audit_log`); view raw AI
-   extraction JSON alongside the slip image side-by-side for corrections; manage
-   the fixed player and bookmaker lists.
+   Won/Lost; **a win\* checkbox on Betfair legs (v1.8, §3.8/§3.9a)**, shown when
+   registering a Betfair leg as Won, for the admin to flag whether it only won via
+   the 90-minute rule; **a Void-leg reconciliation control (§3.7a)** that appears
+   whenever a bet has a Void leg, letting the admin either void the whole bet (full
+   refund, excluded from scoring) or type in the bookmaker's recalculated return;
+   **amend any bet or leg field, or delete a bet slip entirely (§6.3)**; every
+   change (including a delete) writes to an audit trail (`admin_audit_log`); view
+   raw AI extraction JSON alongside the slip image side-by-side for corrections;
+   manage the fixed player and bookmaker lists.
 
 ### 6.2 Non-functional requirements
 
