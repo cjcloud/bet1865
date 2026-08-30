@@ -15,7 +15,10 @@ export default function RulesPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-white">The game</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-white/80 marker:text-accent">
-          <li>Each week, one of the six players places a <strong>treble</strong> (3-leg accumulator) bet.</li>
+          <li>
+            Each week, one of the six players places a <strong>treble</strong> (3-leg accumulator) bet.
+            The order of play is: <strong>Dingle, John, Moony, Simon, Chris, Clive</strong>.
+          </li>
           <li>
             All three legs must be football matches from the English top-flight domestic pyramid:
             Premier League, EFL Championship, EFL League One, EFL League Two.
