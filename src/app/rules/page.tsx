@@ -30,7 +30,11 @@ export default function RulesPage() {
             priced below evens is red-flagged for admin attention, never blocked or dropped.
           </li>
           <li>Stake is fixed at <strong>£10</strong> per bet.</li>
-          <li>Once placed, the player uploads a screenshot of the bet slip to the app.</li>
+          <li>
+            Once a player has placed the bet, they post a photo of the bet slip in the
+            group&apos;s WhatsApp chat — showing the fixtures, the odds, the stake, and
+            the return — and the admin then uploads it to the app.
+          </li>
           <li>
             <strong>Settlement:</strong> once the admin has registered each leg&apos;s result:
             <ul className="mt-2 list-disc space-y-1 pl-5 marker:text-accent">

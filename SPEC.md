@@ -1,7 +1,12 @@
 # Bet1865 — Project Specification
 
-Version 1.9 — 30 August 2026
+Version 1.10 — 30 August 2026
 Owner / Admin: CJ
+
+**Changelog (v1.10, 30 Aug 2026)**: Clarified §3 point 5 and the Rules page to spell
+out what the WhatsApp slip photo should show — the fixtures, the odds, the stake,
+and the return — so the admin has everything needed to enter the bet without
+following up. Wording-only; no behavioural change.
 
 **Changelog (v1.9, 30 Aug 2026)**: Implemented Phase 6 (SPEC.md §6.3): retrospective
 amend of any bet-level or leg-level field — including a slip that's already fully
@@ -135,9 +140,10 @@ logic. Any change to this section must be mirrored on that page.
    priced below 2.0 is **red-flagged** for admin attention rather than blocked or
    silently dropped (see §3.10).
 4. Stake is fixed at **£10** per bet.
-5. The player posts a screenshot of the bet slip in the group's WhatsApp chat, and
-   the admin uploads it to the app (see §6, §6.1 — this is an admin-only action,
-   not something the player does themselves).
+5. Once a player has placed the bet, they post a photo of the bet slip in the
+   group's WhatsApp chat — showing the fixtures, the odds, the stake, and the
+   return — and the admin then uploads it to the app (see §6, §6.1 — this is an
+   admin-only action, not something the player does themselves).
 6. The app extracts and stores: bet date, each leg's home/away teams, the predicted
    outcome per leg, the odds per leg, the total stake, the potential return shown on
    the slip, the bet owner, and the bookmaker. The admin fills in (or corrects) each
