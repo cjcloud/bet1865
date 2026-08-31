@@ -52,6 +52,15 @@ const LEG_STATUS_STYLES: Record<string, string> = {
   void: "bg-white/10 text-white/50 border-white/20",
 };
 
+// Colour for the "Prediction: ..." caption below each leg card. Only Won/
+// Lost carry a settled colour (matching the leg status badge above) - a
+// leg that's still Pending or Void keeps the caption's plain default
+// colour, since there's no settled outcome to reflect yet.
+const PREDICTION_TEXT_STYLES: Record<string, string> = {
+  won: "text-green-400",
+  lost: "text-red-400",
+};
+
 // Read-only view of one uploaded slip for general visitors (SPEC.md §6.1
 // #3 — reached from /bets when browsing by player). Editing/settlement is
 // admin-only, under /admin, so this page has no edit/upload links. Slip
@@ -208,7 +217,7 @@ export default async function BetDetailPage({ params }: { params: { id: string }
                   )}
                 </div>
 
-                <div className="text-xs text-white/50">
+                <div className={`text-xs ${PREDICTION_TEXT_STYLES[leg.status] ?? "text-white/50"}`}>
                   Prediction: {OUTCOME_LABELS[leg.predicted_outcome] ?? leg.predicted_outcome} ·{" "}
                   {new Date(leg.match_datetime).toLocaleString("en-GB", {
                     weekday: "short",
