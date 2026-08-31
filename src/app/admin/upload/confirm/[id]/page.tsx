@@ -101,6 +101,7 @@ export default async function ConfirmPage({
     match_datetime?: string | null;
     predicted_outcome?: string | null;
     odds?: number | null;
+    odds_fraction?: string | null;
   };
   const aiLegs: AiLeg[] =
     (bet.ai_raw_response as { parsed?: { legs?: AiLeg[] } } | null)?.parsed?.legs ?? [];
@@ -346,6 +347,14 @@ export default async function ConfirmPage({
             const awayTeam = fs?.away_team || legField(legNumber, "away_team") || "";
             const predictedOutcome = fs?.predicted_outcome || legField(legNumber, "predicted_outcome") || "";
             const odds = fs?.odds || legField(legNumber, "odds") || "";
+            // Display-only - the fraction as originally printed on the
+            // slip (migration 0009), carried through to bet_legs on Save
+            // so the bet detail pages can show the true original price
+            // rather than a fraction re-derived from the rounded decimal
+            // (which can land on a different, if similarly simple,
+            // fraction - see SPEC.md §3.11). Never edited directly; the
+            // admin only edits the decimal "Odds" field above.
+            const oddsFraction = legField(legNumber, "odds_fraction") || "";
 
             // A "Set to nearest Saturday, 3pm" click redirects back here
             // with the WHOLE form's state (including this leg's suggested
@@ -473,6 +482,13 @@ export default async function ConfirmPage({
                       defaultValue={odds}
                       className="w-full min-h-[44px] rounded bg-black/40 border border-white/20 px-3 text-white"
                     />
+                    <input type="hidden" name={`leg_${legNumber}_odds_fraction`} value={oddsFraction} />
+                    {oddsFraction && (
+                      <p className="mt-1 text-xs text-white/40">
+                        As printed on the slip: {oddsFraction} — change the decimal above if this is wrong,
+                        the fraction shown to players will update to match.
+                      </p>
+                    )}
                   </div>
                 </div>
               </fieldset>

@@ -17,6 +17,10 @@ export const looseLegSchema = z.object({
   match_datetime: z.string().min(1).nullable().optional(),
   predicted_outcome: z.enum(PREDICTED_OUTCOMES).nullable().optional(),
   odds: z.number().nullable().optional(),
+  // The fraction exactly as printed on the slip (e.g. "20/23"), kept purely
+  // for display (src/lib/odds-format.ts) - see migration 0009. Not used by
+  // any scoring/settlement logic, which reads `odds` (decimal) only.
+  odds_fraction: z.string().min(1).nullable().optional(),
 });
 
 export const looseExtractionSchema = z.object({

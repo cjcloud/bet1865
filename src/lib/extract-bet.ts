@@ -26,7 +26,8 @@ Return ONLY a single JSON object (no markdown fences, no commentary) with this e
       "away_team": "string or null",
       "match_datetime": "best-effort ISO 8601 datetime you can infer (date + kickoff time), or null",
       "predicted_outcome": "HOME_WIN" | "AWAY_WIN" | "DRAW" | null,
-      "odds": number (decimal odds for this leg, e.g. 2.5) or null
+      "odds": number (decimal odds for this leg, e.g. 2.5) or null,
+      "odds_fraction": "string, the fraction EXACTLY as printed on the slip (e.g. \"11/10\", \"20/23\"), or null if the slip shows a decimal price instead of a fraction"
     }
   ]
 }
@@ -36,6 +37,7 @@ Rules:
 - "league" must be your best classification of which competition the match is in: one of the four English divisions (Premier League, EFL Championship, EFL League One, EFL League Two), or one of the two domestic cups (FA Cup, EFL Cup / Carabao Cup) — based on team names/context, competition branding on the slip, and round names (e.g. "Round 3", "4th Round Proper" for the FA Cup). Use "FA_CUP" or "EFL_CUP" for a cup tie rather than guessing a division. Use null only if you genuinely cannot tell.
 - "predicted_outcome" is which result the slip is betting on for that leg (home win / away win / draw), not the actual match result.
 - ODDS FORMAT — read this carefully: UK bet slips very commonly show odds as a FRACTION (e.g. "11/10", "6/5", "20/23", "5/2"), not a decimal. "odds" must always be the DECIMAL price. If the slip shows a fraction, convert it yourself using decimal = 1 + (numerator ÷ denominator), rounded to 2 decimal places — do NOT just copy the fraction's digits as if they were already a decimal (e.g. "11/10" is NOT 1.10, it converts to 2.10; "6/5" is NOT 1.20, it converts to 2.20; "20/23" converts to approximately 1.87). If the slip already shows a decimal price (e.g. "2.10"), use that value directly with no conversion.
+- "odds_fraction" must be the fraction's digits exactly as printed on the slip (e.g. "20/23"), completely unrelated to any rounding you did for "odds" — this is kept purely so the app can display the true original price later, since re-deriving a fraction from a rounded decimal can land on a different (if similarly simple) fraction than the real one. Set it to null only if the slip genuinely shows a decimal price with no fraction printed anywhere.
 - If a field is illegible or absent, use null for that field rather than guessing a plausible-looking value.
 - Set "confidence" to "low" if more than one field across the whole slip was illegible or ambiguous.`;
 

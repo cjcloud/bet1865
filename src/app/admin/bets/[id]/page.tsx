@@ -188,7 +188,7 @@ export default async function AdminBetDetailPage({ params }: { params: { id: str
               </div>
               <div className="text-sm text-white/60">
                 Betting on: {OUTCOME_LABELS[leg.predicted_outcome] ?? leg.predicted_outcome} @{" "}
-                {formatFractionalOdds(Number(leg.odds))}
+                {leg.odds_fraction || formatFractionalOdds(Number(leg.odds))}
               </div>
 
               {bookmaker?.is_betfair_exchange && (

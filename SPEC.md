@@ -1,9 +1,9 @@
 # Bet1865 — Project Specification
 
-Version 1.15 — 31 August 2026
+Version 1.16 — 31 August 2026
 Owner / Admin: CJ
 
-**Changelog (v1.15, 31 Aug 2026)**: Added a fourth, final Ranking tiebreak —
+**Changelog (v1.16, 31 Aug 2026)**: Added a fourth, final Ranking tiebreak —
 alphabetical by name — for players who are tied 0/0/0 across betc\*nt count,
 win\* count, and Prediction Score (i.e. a player with no bets recorded yet).
 Previously this exact tie fell back to whatever incidental order Supabase
@@ -368,6 +368,24 @@ remain plain decimal input — the normal odds-entry path is AI extraction from
 the uploaded slip image, not manual typing, so fractional entry wasn't needed
 there.
 
+**Recovering the exact original fraction, not just an approximation
+(v1.16, 31 Aug 2026)**: reconstructing a fraction purely from the rounded
+2dp decimal is inherently ambiguous — more than one real bookmaker fraction
+can round to the same decimal (e.g. both `20/23` and `13/15` round to
+1.87), so `formatFractionalOdds` alone cannot always recover the fraction
+that was actually printed on the slip. Fixed by capturing it at the
+source instead: the AI vision extraction (§6) now also returns
+`odds_fraction` — the fraction exactly as printed on the slip, entirely
+separate from the rounding done for the decimal `odds` value — and the
+confirm screen carries it through to `bet_legs.odds_fraction` (migration
+0009) when the admin saves. The bet detail pages display
+`odds_fraction` when a leg has one, falling back to the computed
+`formatFractionalOdds(odds)` approximation otherwise (older rows, a slip
+that showed a decimal price, or a leg whose decimal odds the admin
+hand-corrected — the stored fraction is deliberately dropped whenever the
+saved decimal no longer matches what it converts to, since a hand-typed
+decimal has no known original fraction).
+
 ### 3.12 [Parked] Fixture lookup — auto-populating league/kick-off from API-Football
 
 This section described a "Find fixture" action on the confirm screen that searched
@@ -554,6 +572,7 @@ create table bet_legs (
   match_datetime      timestamptz not null,          -- admin-entered, §3.12a
   predicted_outcome   predicted_outcome not null,
   odds                numeric(6,2) not null check (odds > 0), -- no 2.0 floor; see §3.10
+  odds_fraction       text,                  -- display-only, exactly as printed on the slip (§3.11, v1.16)
   below_minimum_odds  boolean generated always as (odds < 2.00) stored, -- red-flag, never blocks (§3.10)
   status              leg_status not null default 'pending', -- admin-set directly, §3.9a
   score_home_ft       smallint,              -- optional, admin's own record-keeping only

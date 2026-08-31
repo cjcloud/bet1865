@@ -131,6 +131,7 @@ export async function updateBetAction(formData: FormData) {
     const matchDatetime = formData.get(`leg_${legNumber}_match_datetime`);
     const predictedOutcome = formData.get(`leg_${legNumber}_predicted_outcome`);
     const odds = formData.get(`leg_${legNumber}_odds`);
+    const oddsFractionRaw = formData.get(`leg_${legNumber}_odds_fraction`);
 
     const hasAnyValue = [league, homeTeam, awayTeam, matchDatetime, predictedOutcome, odds].some(
       (v) => typeof v === "string" && v.trim() !== ""
@@ -142,6 +143,28 @@ export async function updateBetAction(formData: FormData) {
     const outcomeValid =
       typeof predictedOutcome === "string" && (PREDICTED_OUTCOMES as readonly string[]).includes(predictedOutcome);
     const oddsNum = typeof odds === "string" ? Number(odds) : NaN;
+
+    // odds_fraction (migration 0009) is display-only and travels through
+    // this form as a hidden field the admin never edits directly - it's
+    // only kept if the decimal "Odds" field still matches what that
+    // fraction converts to. If the admin retyped the decimal (correcting a
+    // misread, or simply not knowing the original fraction), the fraction
+    // no longer describes the saved price, so it's dropped rather than
+    // saved alongside a decimal it doesn't actually match - the display
+    // then falls back to odds-format.ts's computed approximation of the
+    // NEW decimal, same as any leg with no known original fraction.
+    let oddsFraction: string | null = null;
+    if (typeof oddsFractionRaw === "string" && oddsFractionRaw.trim() && Number.isFinite(oddsNum)) {
+      const parts = oddsFractionRaw.trim().split("/");
+      const num = Number(parts[0]);
+      const den = Number(parts[1]);
+      if (parts.length === 2 && Number.isFinite(num) && Number.isFinite(den) && den > 0) {
+        const impliedDecimal = Math.round((1 + num / den) * 100) / 100;
+        if (Math.abs(impliedDecimal - oddsNum) < 0.005) {
+          oddsFraction = oddsFractionRaw.trim();
+        }
+      }
+    }
 
     if (
       !leagueValid ||
@@ -203,6 +226,7 @@ export async function updateBetAction(formData: FormData) {
         match_datetime: new Date(matchDatetime).toISOString(),
         predicted_outcome: predictedOutcome,
         odds: oddsNum,
+        odds_fraction: oddsFraction,
       },
       { onConflict: "bet_id,leg_number" }
     );
@@ -223,6 +247,7 @@ export async function updateBetAction(formData: FormData) {
       match_datetime: new Date(matchDatetime).toISOString(),
       predicted_outcome: predictedOutcome,
       odds: oddsNum,
+      odds_fraction: oddsFraction,
     };
     for (const [key, newVal] of Object.entries(newValues)) {
       const oldVal = before ? (before as Record<string, unknown>)[key] : null;

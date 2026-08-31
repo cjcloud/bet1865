@@ -172,7 +172,7 @@ export default async function BetDetailPage({ params }: { params: { id: string }
                   <div className="flex items-start justify-between gap-3">
                     <span className="text-base font-bold text-white">{pickLabel}</span>
                     <span className="whitespace-nowrap text-base font-bold text-white">
-                      @ {formatFractionalOdds(Number(leg.odds))}
+                      @ {leg.odds_fraction || formatFractionalOdds(Number(leg.odds))}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">

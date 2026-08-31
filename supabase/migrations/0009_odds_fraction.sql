@@ -1,0 +1,25 @@
+-- Adds bet_legs.odds_fraction, per CJ's request (31 Aug 2026, session 5):
+-- the underlying logic keeps working in decimal odds throughout, but the UI
+-- displays fractional odds, and CJ found that reconstructing the fraction
+-- purely from the stored decimal can land on a DIFFERENT (but equally
+-- "nice") fraction than the one actually printed on the slip -- e.g. a
+-- leg genuinely priced 20/23 (decimal 1.87) was being redisplayed as 13/15,
+-- because both fractions round to the same 2dp decimal and there's no way
+-- to recover which one was the real original from the decimal alone.
+--
+-- Fixes this by capturing the fraction AT THE SOURCE: the AI vision
+-- extraction (src/lib/extract-bet.ts) now also returns the fraction exactly
+-- as printed on the slip (e.g. "20/23") whenever the slip shows one, and
+-- the confirm screen carries it through to bet_legs.odds_fraction on save.
+-- Decimal odds (bet_legs.odds) remain the only value any app logic (scoring,
+-- the minimum-odds check, settlement) ever reads -- odds_fraction is
+-- display-only, and is deliberately dropped (set back to null) if the admin
+-- manually retypes the decimal odds value on the confirm/amend screen,
+-- since a hand-typed decimal has no known original fraction to preserve.
+--
+-- When odds_fraction is null (older rows saved before this migration, a
+-- slip that already showed a decimal price, or an admin-edited leg), the
+-- UI falls back to src/lib/odds-format.ts's computed approximation, same
+-- as before this migration.
+
+alter table bet_legs add column if not exists odds_fraction text;
