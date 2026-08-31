@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { isBelowMinimumOdds } from "@/lib/bet-schema";
+import { formatFractionalOdds } from "@/lib/odds-format";
 
 export const dynamic = "force-dynamic";
 
@@ -171,7 +172,7 @@ export default async function BetDetailPage({ params }: { params: { id: string }
                   <div className="flex items-start justify-between gap-3">
                     <span className="text-base font-bold text-white">{pickLabel}</span>
                     <span className="whitespace-nowrap text-base font-bold text-white">
-                      @ {Number(leg.odds).toFixed(2)}
+                      @ {formatFractionalOdds(Number(leg.odds))}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">

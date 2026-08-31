@@ -1,9 +1,9 @@
 # Bet1865 — Project Specification
 
-Version 1.14 — 30 August 2026
+Version 1.15 — 31 August 2026
 Owner / Admin: CJ
 
-**Changelog (v1.14, 30 Aug 2026)**: Added a fourth, final Ranking tiebreak —
+**Changelog (v1.15, 31 Aug 2026)**: Added a fourth, final Ranking tiebreak —
 alphabetical by name — for players who are tied 0/0/0 across betc\*nt count,
 win\* count, and Prediction Score (i.e. a player with no bets recorded yet).
 Previously this exact tie fell back to whatever incidental order Supabase
@@ -334,7 +334,7 @@ to gatekeep what counts as a valid upload — so:
   any leg priced under 2.0 rather than record and flag it — that behaviour was
   wrong and has been corrected.
 
-### 3.11 Fractional-to-decimal odds conversion (AI extraction)
+### 3.11 Fractional/decimal odds conversion
 
 UK bet slips commonly print **fractional odds** (e.g. `11/10`, `6/5`, `20/23`)
 instead of decimal. The slip-parsing prompt (§6) must convert these correctly:
@@ -349,6 +349,24 @@ as if they were already a decimal price (e.g. reading `11/10` as `1.10`) — tha
 silently halves the true odds and was an early bug in this app's extraction prompt,
 corrected once found. Odds already printed in decimal format are used as-is, no
 conversion needed.
+
+**The reverse — decimal to fractional, for display only (v1.15, 31 Aug 2026)**:
+every part of the app's own logic (storage, scoring, the minimum-odds check,
+extraction) works in decimal odds; decimal is never displaced as the system of
+record. The UI, however, always shows a fractional price back to the user (e.g.
+`6/1`, `11/10`, `Evens` for 2.00) — that's the format a bet slip and a bettor
+actually think in. `src/lib/odds-format.ts` (`formatFractionalOdds`) does this
+conversion for display, and is deliberately tolerant of small (≤1p) rounding
+noise in the stored decimal so a value like `6.99` (1p short of an exact `7.00`)
+still reads as `6/1`, not an unwieldy literal reduction like `599/100`. It works
+by first reducing the stored decimal (always exactly 2 decimal places) to an
+exact fraction; if that's already a "nice" fraction (denominator ≤ 20, which
+covers essentially every fraction a UK bookmaker actually prices) it's used
+as-is, otherwise the closest nice fraction within 1p is used instead. Odds
+entered directly by the admin (the confirm/amend screens' correction field)
+remain plain decimal input — the normal odds-entry path is AI extraction from
+the uploaded slip image, not manual typing, so fractional entry wasn't needed
+there.
 
 ### 3.12 [Parked] Fixture lookup — auto-populating league/kick-off from API-Football
 

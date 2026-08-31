@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { isBelowMinimumOdds } from "@/lib/bet-schema";
+import { formatFractionalOdds } from "@/lib/odds-format";
 import { hasVoidLeg, type LegStatus } from "@/lib/settlement";
 import { updateLegStatusAction, voidReconciliationAction } from "./actions";
 
@@ -187,7 +188,7 @@ export default async function AdminBetDetailPage({ params }: { params: { id: str
               </div>
               <div className="text-sm text-white/60">
                 Betting on: {OUTCOME_LABELS[leg.predicted_outcome] ?? leg.predicted_outcome} @{" "}
-                {Number(leg.odds).toFixed(2)}
+                {formatFractionalOdds(Number(leg.odds))}
               </div>
 
               {bookmaker?.is_betfair_exchange && (
