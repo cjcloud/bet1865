@@ -125,7 +125,6 @@ export default function UploadForm({
           id="slip"
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={handleFileChange}
           className="w-full min-h-[44px] text-white file:mr-3 file:min-h-[44px] file:px-3 file:rounded file:border-0 file:bg-accent file:text-black file:font-semibold"
         />
