@@ -86,3 +86,28 @@ export function formatFractionalOdds(decimal: number): string {
   if (numerator === denominator) return "Evens";
   return `${numerator}/${denominator}`;
 }
+
+/**
+ * Parses a fractional-odds string exactly as printed on a bet slip (e.g.
+ * "11/10", "6/5", "20/23") into DECIMAL odds: decimal = 1 + (numerator ÷
+ * denominator), rounded to 2 decimal places - see SPEC.md §3.11.
+ *
+ * Returns null if the string isn't a valid "num/den" fraction. This is the
+ * single source of truth for fraction->decimal conversion - callers should
+ * use this instead of re-deriving it (see extract-bet.ts, which asks Claude's
+ * vision model to do this arithmetic itself as a best-effort first pass, but
+ * a model occasionally just copies the fraction's digits as if they were
+ * already a decimal, e.g. reading "6/5" as 1.20 instead of 2.20 - wherever an
+ * odds_fraction is available, it should be treated as ground truth and run
+ * through this function rather than trusting that freehand value).
+ */
+export function fractionToDecimal(fraction: string): number | null {
+  const parts = fraction.trim().split("/");
+  if (parts.length !== 2) return null;
+  const numerator = Number(parts[0]);
+  const denominator = Number(parts[1]);
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) {
+    return null;
+  }
+  return Math.round((1 + numerator / denominator) * 100) / 100;
+}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { extractBetFromImage } from "@/lib/extract-bet";
 import { legIsComplete, isBelowMinimumOdds } from "@/lib/bet-schema";
+import { fractionToDecimal } from "@/lib/odds-format";
 
 export const runtime = "nodejs";
 
@@ -88,6 +89,23 @@ export async function POST(request: Request) {
       extractionError = err instanceof Error ? err.message : "AI extraction failed";
     }
 
+    // The vision model is asked to convert a printed fraction (e.g. "6/5")
+    // to decimal odds itself (decimal = 1 + numerator/denominator), but it
+    // occasionally just copies the fraction's digits as if already a
+    // decimal (1.20 instead of 2.20). odds_fraction is far more reliably
+    // read (it's a straight copy of what's printed), so wherever it parses
+    // cleanly it's treated as ground truth and used to deterministically
+    // recompute odds, overriding whatever the model put there - see
+    // SPEC.md §3.11.
+    for (const leg of parsed?.legs ?? []) {
+      if (leg.odds_fraction) {
+        const decimalFromFraction = fractionToDecimal(leg.odds_fraction);
+        if (decimalFromFraction !== null) {
+          leg.odds = decimalFromFraction;
+        }
+      }
+    }
+
     const today = new Date().toISOString().slice(0, 10);
     const betDate = parsed?.bet_date || today;
     const stake = typeof parsed?.stake === "number" ? parsed.stake : 10.0;
@@ -149,6 +167,7 @@ export async function POST(request: Request) {
         match_datetime: leg.match_datetime,
         predicted_outcome: leg.predicted_outcome,
         odds,
+        odds_fraction: leg.odds_fraction ?? null,
         status: "pending",
       });
 

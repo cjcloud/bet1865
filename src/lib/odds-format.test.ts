@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decimalToFraction, formatFractionalOdds } from "./odds-format";
+import { decimalToFraction, formatFractionalOdds, fractionToDecimal } from "./odds-format";
 
 describe("formatFractionalOdds", () => {
   it("formats Evens as 'Evens', not 1/1", () => {
@@ -52,5 +52,32 @@ describe("formatFractionalOdds", () => {
   it("returns 0/1 for decimal odds at or below 1.00", () => {
     expect(formatFractionalOdds(1.0)).toBe("0/1");
     expect(decimalToFraction(1.0)).toEqual({ numerator: 0, denominator: 1 });
+  });
+});
+
+describe("fractionToDecimal", () => {
+  it("converts a printed fraction to decimal odds as 1 + numerator/denominator, not the raw fraction digits (the reported bug)", () => {
+    // "6/5" is NOT 1.20 - a bettor's £1 stake at 6/5 returns £2.20 total.
+    expect(fractionToDecimal("6/5")).toBe(2.2);
+    expect(fractionToDecimal("11/10")).toBe(2.1);
+    expect(fractionToDecimal("5/2")).toBe(3.5);
+    expect(fractionToDecimal("1/2")).toBe(1.5);
+  });
+
+  it("rounds to 2 decimal places for a fraction with a repeating/long decimal", () => {
+    expect(fractionToDecimal("20/23")).toBe(1.87);
+  });
+
+  it("returns null for an unparseable or invalid fraction", () => {
+    expect(fractionToDecimal("not a fraction")).toBeNull();
+    expect(fractionToDecimal("5/0")).toBeNull();
+    expect(fractionToDecimal("5")).toBeNull();
+  });
+
+  it("round-trips with decimalToFraction for common bookmaker prices", () => {
+    for (const decimal of [2.0, 2.1, 2.2, 2.5, 3.5, 7.0]) {
+      const { numerator, denominator } = decimalToFraction(decimal);
+      expect(fractionToDecimal(`${numerator}/${denominator}`)).toBe(decimal);
+    }
   });
 });

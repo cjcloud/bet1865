@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { LEAGUE_CODES, PREDICTED_OUTCOMES } from "@/lib/bet-schema";
+import { fractionToDecimal } from "@/lib/odds-format";
 import { nearestSaturdayAt3pm } from "@/lib/nearest-saturday";
 import { deriveBetRollup, deriveWinStar, hasVoidLeg, type LegStatus } from "@/lib/settlement";
 
@@ -155,14 +156,9 @@ export async function updateBetAction(formData: FormData) {
     // NEW decimal, same as any leg with no known original fraction.
     let oddsFraction: string | null = null;
     if (typeof oddsFractionRaw === "string" && oddsFractionRaw.trim() && Number.isFinite(oddsNum)) {
-      const parts = oddsFractionRaw.trim().split("/");
-      const num = Number(parts[0]);
-      const den = Number(parts[1]);
-      if (parts.length === 2 && Number.isFinite(num) && Number.isFinite(den) && den > 0) {
-        const impliedDecimal = Math.round((1 + num / den) * 100) / 100;
-        if (Math.abs(impliedDecimal - oddsNum) < 0.005) {
-          oddsFraction = oddsFractionRaw.trim();
-        }
+      const impliedDecimal = fractionToDecimal(oddsFractionRaw.trim());
+      if (impliedDecimal !== null && Math.abs(impliedDecimal - oddsNum) < 0.005) {
+        oddsFraction = oddsFractionRaw.trim();
       }
     }
 

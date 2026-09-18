@@ -56,6 +56,7 @@ export type CompleteLeg = {
   match_datetime: string;
   predicted_outcome: (typeof PREDICTED_OUTCOMES)[number];
   odds: number;
+  odds_fraction?: string | null;
 };
 
 // A leg is complete enough to insert into bet_legs (NOT NULL on every field
