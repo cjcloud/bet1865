@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { extractBetFromImage } from "@/lib/extract-bet";
 import { legIsComplete, isBelowMinimumOdds } from "@/lib/bet-schema";
 import { fractionToDecimal } from "@/lib/odds-format";
+import { correctNearTermYear } from "@/lib/fixture-date";
 
 export const runtime = "nodejs";
 
@@ -89,20 +90,34 @@ export async function POST(request: Request) {
       extractionError = err instanceof Error ? err.message : "AI extraction failed";
     }
 
-    // The vision model is asked to convert a printed fraction (e.g. "6/5")
-    // to decimal odds itself (decimal = 1 + numerator/denominator), but it
-    // occasionally just copies the fraction's digits as if already a
-    // decimal (1.20 instead of 2.20). odds_fraction is far more reliably
-    // read (it's a straight copy of what's printed), so wherever it parses
-    // cleanly it's treated as ground truth and used to deterministically
-    // recompute odds, overriding whatever the model put there - see
-    // SPEC.md §3.11.
+    const uploadTime = new Date();
+
     for (const leg of parsed?.legs ?? []) {
+      // The vision model is asked to convert a printed fraction (e.g. "6/5")
+      // to decimal odds itself (decimal = 1 + numerator/denominator), but it
+      // occasionally just copies the fraction's digits as if already a
+      // decimal (1.20 instead of 2.20). odds_fraction is far more reliably
+      // read (it's a straight copy of what's printed), so wherever it parses
+      // cleanly it's treated as ground truth and used to deterministically
+      // recompute odds, overriding whatever the model put there - see
+      // SPEC.md §3.11.
       if (leg.odds_fraction) {
         const decimalFromFraction = fractionToDecimal(leg.odds_fraction);
         if (decimalFromFraction !== null) {
           leg.odds = decimalFromFraction;
         }
+      }
+
+      // UK bet slips almost never print a year, so the model has to infer
+      // it and can still fall back to an implausible one even with an
+      // explicit "today's date" anchor in the prompt (observed live: a slip
+      // uploaded 18 Sep 2026 came back dated "2024-09-19", silently turning
+      // a Saturday fixture into a "Thursday" one on every date display).
+      // Every slip is for a near-term fixture, so the year is corrected
+      // deterministically to whichever of last/this/next year puts the
+      // extracted day+month closest to the upload time.
+      if (leg.match_datetime) {
+        leg.match_datetime = correctNearTermYear(leg.match_datetime, uploadTime);
       }
     }
 

@@ -8,7 +8,10 @@ import { looseExtractionSchema, type LooseExtraction } from "./bet-schema";
 // vision-capable Claude model id (see BUILD_TEST_DEPLOY_PLAN.md's open
 // decision #1). We fail loudly rather than silently call a wrong model.
 
-const EXTRACTION_PROMPT = `You are extracting structured data from a photo of a football accumulator ("treble") bet slip from a UK bookmaker.
+function buildExtractionPrompt(todayIso: string): string {
+  return `You are extracting structured data from a photo of a football accumulator ("treble") bet slip from a UK bookmaker.
+
+Today's date is ${todayIso}. This slip was uploaded today or very recently, and every leg is for a near-term fixture — typically a few days out, at most about a week ahead. Use today's date as your anchor for inferring any date on the slip, especially the YEAR, which UK bet slips usually omit entirely (they print only the day and month, e.g. "Sat 19 Sep", never a year) - do not guess a year from habit or from what you've seen in training data; it must be the year that actually makes that day/month fall within the near-term window around today's date above.
 
 Return ONLY a single JSON object (no markdown fences, no commentary) with this exact shape:
 
@@ -40,6 +43,7 @@ Rules:
 - "odds_fraction" must be the fraction's digits exactly as printed on the slip (e.g. "20/23"), completely unrelated to any rounding you did for "odds" — this is kept purely so the app can display the true original price later, since re-deriving a fraction from a rounded decimal can land on a different (if similarly simple) fraction than the real one. Set it to null only if the slip genuinely shows a decimal price with no fraction printed anywhere.
 - If a field is illegible or absent, use null for that field rather than guessing a plausible-looking value.
 - Set "confidence" to "low" if more than one field across the whole slip was illegible or ambiguous.`;
+}
 
 export async function extractBetFromImage(
   imageBase64: string,
@@ -80,7 +84,7 @@ export async function extractBetFromImage(
               data: imageBase64,
             },
           },
-          { type: "text", text: EXTRACTION_PROMPT },
+          { type: "text", text: buildExtractionPrompt(new Date().toISOString().slice(0, 10)) },
         ],
       },
     ],
