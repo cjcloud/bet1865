@@ -72,6 +72,7 @@ export default async function RankingPage() {
                   betc*nt
                   <div className="text-[10px] font-normal normal-case text-white/40">(COTW&apos;s)</div>
                 </th>
+                <th className="px-4 py-3 font-medium text-right">Wins</th>
                 <th className="px-4 py-3 font-medium text-right">
                   Win*
                   <div className="text-[10px] font-normal normal-case text-white/40">(90-min wins)</div>
@@ -107,6 +108,7 @@ export default async function RankingPage() {
                         />
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-right text-white/60">{row.bets_won}</td>
                     <td className="px-4 py-3 text-right text-white/60">{row.win_star_count}</td>
                     <td className="px-4 py-3 text-right text-white/80">{row.secondary_score}</td>
                     <td className="px-4 py-3 text-right text-white/60">{row.bets_settled}</td>
