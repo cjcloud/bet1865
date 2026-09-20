@@ -3,6 +3,14 @@
 Version 1.16 — 31 August 2026
 Owner / Admin: CJ
 
+**Changelog (20 Sep 2026)**: Ranking ties now resolve in the requested order:
+betc\*nt count descending, wins ascending, win\* count descending, Prediction
+Score ascending, then the combined predicted return from every bet ascending.
+Chrimbo Cup position will be inserted next when the cup launches; name remains
+the final exact-tie fallback. Added `player_rankings.total_predicted_return`
+(migration `0010_total_predicted_return_tiebreak.sql`) and exposed the value in
+the Ranking table. See §4.
+
 **Changelog (v1.16, 31 Aug 2026)**: Added a fourth, final Ranking tiebreak —
 alphabetical by name — for players who are tied 0/0/0 across betc\*nt count,
 win\* count, and Prediction Score (i.e. a player with no bets recorded yet).
@@ -440,18 +448,19 @@ COTW's" in-app)
   other settled bet — since by that point it has a real, bookmaker-confirmed
   outcome and return.
 
-**win\*** (v1.8; **first tiebreaker** whenever two or more players are level on
-betc\*nt count)
+**wins and win\*** (first and second tiebreakers)
+- Among players level on betc\*nt count, the player with **fewer won bets**
+  ranks higher/worse.
 - A bet is a win\* when it's won (`bets.status = 'won'`) and at least one of its
   legs was flagged by the admin as won only via Betfair's 90-minute rule — it
   would have **lost** on the actual full-time result (§3.8, §3.9a).
 - The win\* count is simply how many of a player's bets are win\*.
 - A win\* still counts as a completely normal win for betc\*nt count and
-  Prediction Score purposes — it only comes into play as this tiebreaker.
+  Prediction Score purposes. If win totals are also tied, the player with the
+  **higher win\* count** ranks higher/worse.
 
 **Prediction Score** (SPEC.md-internal name: secondary score; used as the
-**second tiebreaker, when players are level on both betc\*nt count and win\*
-count**)
+**third tiebreaker, when players are level on betc\*nt count, wins, and win\***)
 - +1 for **every individual leg that wins**, across all of that player's bets
   (0–3 per bet). A Void leg contributes neither a win nor a loss to this count —
   only the other legs' Won/Lost statuses count.
@@ -460,18 +469,23 @@ count**)
   contributes +5 to the secondary score in total. A bet with any void leg can never
   qualify for this bonus, since not all three legs are Won.
 
+**Total predicted return** is the **fourth tiebreaker**, when players are still
+level on betc\*nt count, wins, win\*, and Prediction Score. It is the sum of
+`bets.slip_return_amount` across every bet placed by the player, including bets
+that have not yet settled. The player with the lower total ranks higher/worse.
+
 The Ranking table sorts by betc\*nt count **descending** — the player with the
 **highest** betc\*nt count (the most COTW's) is listed **first**. Ties break up to
-three levels deeper: first by win\* count **descending** (v1.8; among players
-level on betc\*nt count, the one with the *more* win\* bets — the less
-convincing wins — ranks higher/worse), then, if still level, by Prediction
+four levels deeper: wins **ascending**, win\* count **descending**, Prediction
 Score **ascending** (the one with the *lower* Prediction Score — the worse
-predictor — ranks higher/worse), then, if *still* level, alphabetically by
+predictor — ranks higher/worse), then total predicted return **ascending**.
+When the Chrimbo Cup launches, cup position will become the next tiebreaker.
+Until then, if players are *still* level, they are ordered alphabetically by
 player **name** (v1.14) — in practice this last tiebreak only ever fires for
 players tied 0/0/0 across all three score fields, i.e. players with no bets
 recorded yet, giving them a stable order (Chris, Clive, Dingle, John, Moony,
-Simon) rather than an arbitrary one. Both scores, the win\* count, plus bets
-played, win rate, and current streak, are shown per player.
+Simon) rather than an arbitrary one. Both scores, total predicted return, the
+win\* count, plus bets played, win rate, and current streak, are shown per player.
 
 ### Worked example
 

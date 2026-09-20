@@ -64,8 +64,8 @@ export default function RulesPage() {
         <h2 className="text-lg font-semibold text-white">Scoring — the betc*nt table</h2>
         <p className="text-sm text-white/70">
           The ranking in the betc*nt table is determined by the betc*nt count (formerly COTW).
-          Tiebreaks are determined by Win* (number of wins won late in the game) and Prediction
-          Score (number of legs successfully predicted).
+          Ties are broken by wins, Win*, Prediction Score, then total predicted return. Chrimbo Cup
+          position will be added before the final player-name tiebreak when the cup launches.
         </p>
 
         <div className="rounded border border-white/10 bg-surface p-4">
@@ -80,28 +80,24 @@ export default function RulesPage() {
         </div>
 
         <div className="rounded border border-white/10 bg-surface p-4">
-          <h3 className="font-medium text-white">Win* (first tiebreaker)</h3>
+          <h3 className="font-medium text-white">Wins and Win* (first and second tiebreakers)</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/70 marker:text-accent">
             <li>
               Only relevant on a Betfair Exchange leg that won because of the 90-minute rule while
               it would have lost on the actual full-time score (see The game, above).
             </li>
+            <li>First, the player with fewer wins ranks higher.</li>
             <li>A bet is a win* if it won and at least one of its legs won this way.</li>
-            <li>
-              Breaks a tie between players level on betc*nt count — the player with more win*
-              bets ranks above (worse than) one with fewer, since a win* is a less convincing win
-              than a clean one.
-            </li>
+            <li>If wins are tied, the player with more win* bets ranks higher.</li>
           </ul>
         </div>
 
         <div className="rounded border border-white/10 bg-surface p-4">
-          <h3 className="font-medium text-white">Prediction Score (second tiebreaker)</h3>
+          <h3 className="font-medium text-white">Prediction Score (third tiebreaker)</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/70 marker:text-accent">
             <li>
-              Breaks a tie between players level on both betc*nt count and win* count — the lower
-              Prediction Score ranks above the higher one, in keeping with a higher position
-              meaning lower success.
+              If betc*nt count, wins, and Win* are tied, the lower Prediction Score ranks above the
+              higher one, in keeping with a higher position meaning lower success.
             </li>
             <li>+1 for every individual leg that wins, across all bets (0-3 per bet).</li>
             <li>
@@ -109,6 +105,17 @@ export default function RulesPage() {
               total.
             </li>
             <li>A void leg contributes neither a win nor a loss to this count.</li>
+          </ul>
+        </div>
+
+        <div className="rounded border border-white/10 bg-surface p-4">
+          <h3 className="font-medium text-white">Total predicted return (fourth tiebreaker)</h3>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/70 marker:text-accent">
+            <li>
+              If players are still tied, the potential returns shown on all of their bet slips are
+              added together.
+            </li>
+            <li>The player with the lower combined predicted return ranks above the other.</li>
           </ul>
         </div>
 
