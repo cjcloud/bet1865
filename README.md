@@ -38,8 +38,29 @@ Schema lives in `supabase/migrations/0001_init.sql`, seed data in
   generated `below_minimum_odds` red-flag column (§3.10)
 - `0004_fixture_lookup.sql` — `bet_leg_fixture_candidates` staging table for
   fixture-lookup disambiguation (§3.12)
+- `0005_manual_settlement.sql` — void reconciliation and ranking exclusions
+- `0006_ranking_sort_order.sql` — worst-first ranking order
+- `0007_add_cup_leagues.sql` — FA Cup and EFL Cup league values
+- `0008_win_star.sql` — 90-minute-rule win tracking and ranking statistic
+- `0009_odds_fraction.sql` — exact fractional-odds display value
+- `0010_total_predicted_return_tiebreak.sql` — live total predicted-return
+  aggregate and latest ranking order
 
 Apply all of these via the Supabase SQL editor (in order) or the Supabase CLI.
+
+### Current ranking order
+
+The ranking sorts by betc\*nt count descending, wins ascending, win\* count
+descending, Prediction Score ascending, total predicted return ascending, then
+player name ascending. Chrimbo Cup position will be inserted immediately before
+name when that competition launches.
+
+Total predicted return is calculated live as the sum of `slip_return_amount` for
+all bet rows assigned to a player. Uploads add to it immediately; correcting a
+return replaces the contribution; reassigning a bet moves it between players; and
+deleting a bet removes it. All statuses—including pending and voided bets—count.
+There is currently no season boundary, so this remains an all-time total over bets
+present in the database.
 
 ### Database rollback procedure
 

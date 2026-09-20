@@ -431,8 +431,9 @@ for "no match found," now promoted to the only path:
 
 ## 4. Scoring — "betc\*nt" Ranking
 
-Every player starts each season at **0 / 0**. Two scores, plus a win\* count
-(v1.8), are tracked per player:
+Every player starts at zero. v1 has no season reset or archive, so all ranking
+measures are all-time totals over the bet rows currently in the database (see
+§9). The following measures are tracked per player:
 
 **betc\*nt count** (SPEC.md-internal name: primary score; a player's "number of
 COTW's" in-app)
@@ -472,7 +473,19 @@ COTW's" in-app)
 **Total predicted return** is the **fourth tiebreaker**, when players are still
 level on betc\*nt count, wins, win\*, and Prediction Score. It is the sum of
 `bets.slip_return_amount` across every bet placed by the player, including bets
-that have not yet settled. The player with the lower total ranks higher/worse.
+that have not yet settled and bets later voided or reconciled. The player with the
+lower total ranks higher/worse. This is a live aggregate, not a stored counter:
+
+- Uploading a slip includes its extracted return immediately while it is still
+  `pending_review`. An unread/missing extracted return initially contributes £0
+  until corrected on the confirm/amend screen.
+- Correcting `slip_return_amount` replaces that bet's contribution immediately.
+- Reassigning a bet removes its amount from the original player's total and adds
+  it to the new player's total.
+- Deleting a bet removes its amount. Its audit-log snapshot is not a bet row and
+  therefore does not count.
+- Settlement does not alter this measure: pending, won, lost, and voided bets all
+  contribute their slip return while their bet row exists.
 
 The Ranking table sorts by betc\*nt count **descending** — the player with the
 **highest** betc\*nt count (the most COTW's) is listed **first**. Ties break up to
@@ -481,11 +494,10 @@ Score **ascending** (the one with the *lower* Prediction Score — the worse
 predictor — ranks higher/worse), then total predicted return **ascending**.
 When the Chrimbo Cup launches, cup position will become the next tiebreaker.
 Until then, if players are *still* level, they are ordered alphabetically by
-player **name** (v1.14) — in practice this last tiebreak only ever fires for
-players tied 0/0/0 across all three score fields, i.e. players with no bets
-recorded yet, giving them a stable order (Chris, Clive, Dingle, John, Moony,
-Simon) rather than an arbitrary one. Both scores, total predicted return, the
-win\* count, plus bets played, win rate, and current streak, are shown per player.
+player **name** (v1.14). This gives any exact tie—including players with no bets—a
+stable order rather than an arbitrary database order. Both scores, wins, win\*
+count, total predicted return, bets played, win rate, and current streak are shown
+per player.
 
 ### Worked example
 
@@ -611,16 +623,17 @@ create table admin_audit_log (
 );
 ```
 
-A `player_rankings` view (or nightly materialized view) derives the betc\*nt
-count/win\* count/Prediction Score from `bets`/`bet_legs` per §4, so scores are
-never stored redundantly — they're always recomputed from settled data (populated
-by admin entry, §3.9a, rather than an automated job). Per §4, the view excludes any
-bet with `reconciliation = 'voided_full_refund'` from all three scores and from
-the bets-played/win-rate denominator, and its own default `ORDER BY` matches the
-app's Ranking page — betc\*nt count descending, win\* count descending, Prediction
-Score ascending (v1.8). Because the view is always derived live from whichever
-`bets`/`bet_legs` rows currently exist, deleting a bet (§6.3) removes it from the
-rankings automatically, with no separate recompute step.
+A `player_rankings` view derives betc\*nt count, wins, win\* count, Prediction
+Score, and total predicted return from `bets`/`bet_legs` per §4, so none is stored
+as a separate running counter. Outcome-based measures are recomputed from settled
+data populated by admin entry (§3.9a). A bet reconciled as
+`voided_full_refund` is excluded from the two scores and the bets-played/win-rate
+denominator, but its slip return remains in total predicted return while the bet
+row exists. The view's default order matches the app: betc\*nt count descending,
+wins ascending, win\* count descending, Prediction Score ascending, then total
+predicted return ascending. The app adds player name ascending as its stable final
+tie-break. Uploads, amendments, player reassignment, and deletion are reflected
+live without a recompute job.
 
 ## 6. Application Architecture
 
@@ -696,8 +709,10 @@ rankings automatically, with no separate recompute step.
    this is where a general user checks what's been recorded so far; no edit/upload
    controls are shown here (those are admin-only, under `/admin`).
 5. **Ranking** (`/ranking`, **moved from `/` in v1.11**) — the betc\*nt
-   leaderboard: table of all 6 players sorted per §4 (highest betc\*nt count —
-   most COTW's — first, ties broken by win\* count then Prediction Score, v1.8),
+   leaderboard: table of all 6 players sorted per §4 (betc\*nt descending, wins
+   ascending, win\* descending, Prediction Score ascending, total predicted return
+   ascending, then name ascending; Chrimbo Cup position will be inserted before
+   name when launched),
    plus a per-player detail view (bet history, win rate, current streak,
    win\* count — added v1.13; see §6.1's changelog note) and simple charts
    (betc\*nt count over time, legs-won distribution).

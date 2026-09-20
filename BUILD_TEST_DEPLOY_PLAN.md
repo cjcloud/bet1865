@@ -364,8 +364,14 @@ recalculation step.
 
 ## Phase 5 — Ranking & Rules pages (1 day)
 
-1. `/ranking`: leaderboard table sorted primary asc / secondary desc, per-player
-   drill-down (bet history, streak, win rate), simple chart(s). Per spec §6.2, the
+1. `/ranking`: leaderboard table sorted by betc\*nt count descending, wins
+   ascending, win\* count descending, Prediction Score ascending, total predicted
+   return ascending, then player name ascending. Chrimbo Cup position is reserved
+   as a future tie-break immediately before name. Total predicted return is the
+   live sum of `slip_return_amount` for every existing bet row assigned to the
+   player, regardless of settlement status; upload, amendment, reassignment, and
+   deletion therefore update it automatically. Include a per-player drill-down
+   (bet history, streak, win rate) and simple chart(s). Per spec §6.2, the
    table scrolls horizontally within its own container on narrow screens rather
    than forcing the whole page to scroll sideways. Per SPEC.md §4, bets with
    `reconciliation = 'voided_full_refund'` are excluded from both scores and from
