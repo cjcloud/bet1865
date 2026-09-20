@@ -34,7 +34,7 @@ interface RankingRow {
 export default async function RankingPage() {
   const supabase = createClient();
 
-  const { data: rankings } = await supabase
+  const { data: rankings, error } = await supabase
     .from("player_rankings")
     .select("player_id, name, primary_score, win_star_count, secondary_score, bets_settled, bets_won, total_predicted_return")
     .order("primary_score", { ascending: false })
@@ -44,6 +44,11 @@ export default async function RankingPage() {
     .order("total_predicted_return", { ascending: true })
     .order("name", { ascending: true })
     .returns<RankingRow[]>();
+
+  if (error) {
+    console.error("Failed to load player rankings", error);
+    throw new Error("Unable to load the rankings.");
+  }
 
   const rows = rankings ?? [];
   const maxPrimary = Math.max(1, ...rows.map((r) => r.primary_score));
