@@ -41,6 +41,20 @@ Schema lives in `supabase/migrations/0001_init.sql`, seed data in
 
 Apply all of these via the Supabase SQL editor (in order) or the Supabase CLI.
 
+### Database rollback procedure
+
+Database migrations that change application-facing objects have matching SQL
+scripts under `supabase/rollbacks/`. To roll back safely:
+
+1. Revert and deploy the application first, so live code no longer depends on
+   the new database shape.
+2. Run the matching rollback script in the Supabase SQL editor.
+3. Verify the affected page against production data.
+
+For migration `0010`, run
+`supabase/rollbacks/0010_total_predicted_return_tiebreak.sql` only after the
+ranking application change has been reverted.
+
 ## Admin auth (one-time setup)
 
 The Admin area (`/admin/*`) uses Supabase magic-link sign-in, restricted to a single

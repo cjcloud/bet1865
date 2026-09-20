@@ -6,6 +6,11 @@
 --
 -- The new column is appended to preserve the existing view column positions,
 -- as required by CREATE OR REPLACE VIEW.
+-- Roll back with supabase/rollbacks/0010_total_predicted_return_tiebreak.sql,
+-- but only after the application deployment that reads the new column has
+-- itself been rolled back.
+
+begin;
 
 create or replace view player_rankings as
 with leg_agg as (
@@ -54,3 +59,5 @@ left join return_agg ra on ra.player_id = p.id
 group by p.id, p.name, ra.total_predicted_return
 order by primary_score desc, bets_won asc, win_star_count desc, secondary_score asc,
   total_predicted_return asc;
+
+commit;
