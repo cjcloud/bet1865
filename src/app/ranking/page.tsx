@@ -12,6 +12,7 @@ interface RankingRow {
   secondary_score: number;
   bets_settled: number;
   bets_won: number;
+  total_predicted_return: number;
 }
 
 // betc*nt leaderboard (SPEC.md §4, §6.1 #4). player_rankings is a Postgres
@@ -20,26 +21,27 @@ interface RankingRow {
 // from both scores and the bets-played/win-rate denominator (migration
 // 0005). Sort order is set explicitly here (not left to the view's own
 // default) so it's obvious at a glance what this page shows: the biggest
-// betc*nt — most COTW's — sits at the top. Ties break three levels deep:
-// win* count first (more wins earned only via Betfair's 90-minute rule is
-// the more shameful showing, so a HIGHER win* count sits above/worse — see
-// SPEC.md §3.8/§4), then Prediction Score (fewest leg wins among tied
-// players is the more shameful showing, so a LOWER Prediction Score sits
-// above/worse). A player with no bets recorded yet has 0/0/0 across all
-// three, so a final alphabetical-by-name tiebreak (30 Aug 2026) keeps that
+// betc*nt — most COTW's — sits at the top. Ties break by fewest wins, then
+// highest Win* count, lowest Prediction Score, and lowest total potential
+// return across all bets placed. Chrimbo Cup position will be inserted after
+// predicted return when that competition launches. Until then, a final
+// alphabetical-by-name
+// tiebreak (30 Aug 2026) keeps that
 // group in a stable, predictable order rather than whatever incidental
 // order the database happens to return for an exact tie — the moment a
-// player has a bet, their scores will normally differ from 0/0/0 and the
-// three score-based rules above take over as usual.
+// player has a bet, their ranking measures will normally differ and the
+// score-based rules above take over as usual.
 export default async function RankingPage() {
   const supabase = createClient();
 
   const { data: rankings } = await supabase
     .from("player_rankings")
-    .select("player_id, name, primary_score, win_star_count, secondary_score, bets_settled, bets_won")
+    .select("player_id, name, primary_score, win_star_count, secondary_score, bets_settled, bets_won, total_predicted_return")
     .order("primary_score", { ascending: false })
+    .order("bets_won", { ascending: true })
     .order("win_star_count", { ascending: false })
     .order("secondary_score", { ascending: true })
+    .order("total_predicted_return", { ascending: true })
     .order("name", { ascending: true })
     .returns<RankingRow[]>();
 
@@ -63,7 +65,7 @@ export default async function RankingPage() {
         <p className="text-white/50 text-sm">No players found.</p>
       ) : (
         <div className="overflow-x-auto rounded border border-white/10 bg-surface">
-          <table className="w-full min-w-[620px] text-left text-sm">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
               <tr className="border-b border-white/10 text-white/50">
                 <th className="px-4 py-3 font-medium">#</th>
@@ -78,6 +80,7 @@ export default async function RankingPage() {
                   <div className="text-[10px] font-normal normal-case text-white/40">(90-min wins)</div>
                 </th>
                 <th className="px-4 py-3 font-medium text-right">Prediction Score</th>
+                <th className="px-4 py-3 font-medium text-right">Predicted return</th>
                 <th className="px-4 py-3 font-medium text-right">Played</th>
                 <th className="px-4 py-3 font-medium text-right">Win rate</th>
               </tr>
@@ -111,6 +114,9 @@ export default async function RankingPage() {
                     <td className="px-4 py-3 text-right text-white/60">{row.bets_won}</td>
                     <td className="px-4 py-3 text-right text-white/60">{row.win_star_count}</td>
                     <td className="px-4 py-3 text-right text-white/80">{row.secondary_score}</td>
+                    <td className="px-4 py-3 text-right text-white/60">
+                      £{Number(row.total_predicted_return).toFixed(2)}
+                    </td>
                     <td className="px-4 py-3 text-right text-white/60">{row.bets_settled}</td>
                     <td className="px-4 py-3 text-right text-white/60">
                       {rate === null ? "—" : `${rate.toFixed(0)}%`}
