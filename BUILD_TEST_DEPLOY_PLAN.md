@@ -406,17 +406,6 @@ scores; a seeded bet reconciled via the manual-bookmaker-return path does.
    - Redirect back to the bets list; confirm the bet no longer appears in View
      Slips, Admin, or the Ranking page's totals.
 4. Player/bookmaker management (add/deactivate).
-5. **Added (26 Sep 2026) — Add a Settled Slip** (SPEC.md §6.1 #3a):
-   `/admin/upload/settled` reuses `UploadForm` with `settled`, posting
-   `settled=1` to `/api/admin/upload`, which switches the extraction prompt to
-   settled mode (per-leg `result`, past-anchored dates), applies
-   `correctPastYear` instead of `correctNearTermYear`, and stores
-   `ai_raw_response.retrospective = true`. The confirm screen and
-   `updateBetAction` offer and require a per-leg result only while that marker
-   is set and the bet is still `pending_review`; the existing re-derive block
-   then settles the bet. Unit-tested: `correctPastYear`
-   (`src/lib/fixture-date.test.ts`). Live test pending: upload a real settled
-   slip (one all-won, one with a losing leg, one Betfair with a win\* leg).
 
 **Exit criteria**: admin can fully correct a mis-parsed bet end-to-end (including
 registering/correcting a leg's result and, where needed, a void reconciliation,

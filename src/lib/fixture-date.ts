@@ -32,24 +32,3 @@ export function correctNearTermYear(isoDatetime: string, referenceDate: Date): s
   if (!best) return isoDatetime;
   return `${best.year}-${monthDayAndRest}`;
 }
-
-// Retrospective counterpart to correctNearTermYear, for a slip uploaded via
-// the settled-slip flow (SPEC.md §6.1 #3a) after its fixtures have already
-// been played - possibly weeks or months ago, so "nearest year" is wrong
-// (a fixture 7 months back is "nearer" next year). Every leg on a settled
-// slip has, by definition, already kicked off, so the correct year is the
-// latest of this/last year that puts day+month on or before the reference
-// date (upload time). Like correctNearTermYear, only day+month are trusted.
-export function correctPastYear(isoDatetime: string, referenceDate: Date): string {
-  const match = isoDatetime.match(/^\d{4}-(\d{2}-\d{2}T.*)$/);
-  if (!match) return isoDatetime;
-  const monthDayAndRest = match[1];
-  const referenceYear = referenceDate.getUTCFullYear();
-
-  for (const year of [referenceYear, referenceYear - 1]) {
-    const candidate = new Date(`${year}-${monthDayAndRest}`);
-    if (Number.isNaN(candidate.getTime())) continue;
-    if (candidate.getTime() <= referenceDate.getTime()) return `${year}-${monthDayAndRest}`;
-  }
-  return isoDatetime;
-}

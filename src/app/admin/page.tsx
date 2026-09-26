@@ -32,20 +32,6 @@ export default async function AdminPage() {
         </div>
 
         <div className="rounded border border-white/10 bg-surface p-4">
-          <h2 className="font-semibold text-white">Add a Settled Slip</h2>
-          <p className="mt-1 text-sm text-white/60">
-            Entering a bet after its fixtures have finished? Upload the settled
-            slip and save it with each leg&apos;s result in one go (SPEC.md §6.1).
-          </p>
-          <Link
-            href="/admin/upload/settled"
-            className="mt-3 inline-flex min-h-[44px] items-center rounded bg-accent px-4 font-semibold text-black"
-          >
-            Add Settled Slip
-          </Link>
-        </div>
-
-        <div className="rounded border border-white/10 bg-surface p-4">
           <h2 className="font-semibold text-white">All Bets</h2>
           <p className="mt-1 text-sm text-white/60">
             Settle legs Won/Lost/Void, reconcile a Void bet, or delete a duplicate

@@ -8,9 +8,6 @@ import { z } from "zod";
 
 export const LEAGUE_CODES = ["PL", "CHAMPIONSHIP", "LEAGUE_ONE", "LEAGUE_TWO", "FA_CUP", "EFL_CUP"] as const;
 export const PREDICTED_OUTCOMES = ["HOME_WIN", "AWAY_WIN", "DRAW"] as const;
-// Only asked for on the settled-slip flow (SPEC.md §6.1 #3a) - a slip
-// uploaded after its fixtures have been played shows each leg's result.
-export const LEG_RESULTS = ["WON", "LOST", "VOID"] as const;
 
 export const looseLegSchema = z.object({
   leg_number: z.number().int().min(1).max(3).nullable().optional(),
@@ -24,7 +21,6 @@ export const looseLegSchema = z.object({
   // for display (src/lib/odds-format.ts) - see migration 0009. Not used by
   // any scoring/settlement logic, which reads `odds` (decimal) only.
   odds_fraction: z.string().min(1).nullable().optional(),
-  result: z.enum(LEG_RESULTS).nullable().optional(),
 });
 
 export const looseExtractionSchema = z.object({

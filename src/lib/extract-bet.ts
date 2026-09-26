@@ -8,24 +8,10 @@ import { looseExtractionSchema, type LooseExtraction } from "./bet-schema";
 // vision-capable Claude model id (see BUILD_TEST_DEPLOY_PLAN.md's open
 // decision #1). We fail loudly rather than silently call a wrong model.
 
-// `settled` = the retrospective settled-slip flow (SPEC.md §6.1 #3a): the
-// fixtures have already been played, so dates are anchored in the past and
-// each leg's settled result is read off the slip too.
-function buildExtractionPrompt(todayIso: string, settled: boolean): string {
-  const dateContext = settled
-    ? `Today's date is ${todayIso}. This is a SETTLED slip: every leg's fixture has already been played, on or before today's date — possibly weeks or months ago. UK bet slips usually omit the YEAR entirely (they print only the day and month, e.g. "Sat 19 Sep") - do not guess a year from habit or from training data; it must be the most recent year that puts that day/month on or before today's date.`
-    : `Today's date is ${todayIso}. This slip was uploaded today or very recently, and every leg is for a near-term fixture — typically a few days out, at most about a week ahead. Use today's date as your anchor for inferring any date on the slip, especially the YEAR, which UK bet slips usually omit entirely (they print only the day and month, e.g. "Sat 19 Sep", never a year) - do not guess a year from habit or from what you've seen in training data; it must be the year that actually makes that day/month fall within the near-term window around today's date above.`;
-  const resultField = settled
-    ? `,
-      "result": "WON" | "LOST" | "VOID" | null (how the bookmaker settled THIS leg, as shown on the slip - e.g. a tick/cross, "Won"/"Lost", green/red marking, "Void"; null if not shown)`
-    : "";
-  const resultRule = settled
-    ? `
-- "result" is the bookmaker's settlement of each individual leg as printed on this settled slip, not your own judgement of the match. "slip_return_amount" is still the POTENTIAL return if all legs had won (e.g. "Potential returns", "To return") - NOT the amount actually paid out; if the slip only shows the actual payout of a losing bet (e.g. "Returns £0.00"), use null.`
-    : "";
+function buildExtractionPrompt(todayIso: string): string {
   return `You are extracting structured data from a photo of a football accumulator ("treble") bet slip from a UK bookmaker.
 
-${dateContext}
+Today's date is ${todayIso}. This slip was uploaded today or very recently, and every leg is for a near-term fixture — typically a few days out, at most about a week ahead. Use today's date as your anchor for inferring any date on the slip, especially the YEAR, which UK bet slips usually omit entirely (they print only the day and month, e.g. "Sat 19 Sep", never a year) - do not guess a year from habit or from what you've seen in training data; it must be the year that actually makes that day/month fall within the near-term window around today's date above.
 
 Return ONLY a single JSON object (no markdown fences, no commentary) with this exact shape:
 
@@ -44,7 +30,7 @@ Return ONLY a single JSON object (no markdown fences, no commentary) with this e
       "match_datetime": "best-effort ISO 8601 datetime you can infer (date + kickoff time), or null",
       "predicted_outcome": "HOME_WIN" | "AWAY_WIN" | "DRAW" | null,
       "odds": number (decimal odds for this leg, e.g. 2.5) or null,
-      "odds_fraction": "string, the fraction EXACTLY as printed on the slip (e.g. \"11/10\", \"20/23\"), or null if the slip shows a decimal price instead of a fraction"${resultField}
+      "odds_fraction": "string, the fraction EXACTLY as printed on the slip (e.g. \"11/10\", \"20/23\"), or null if the slip shows a decimal price instead of a fraction"
     }
   ]
 }
@@ -56,13 +42,12 @@ Rules:
 - ODDS FORMAT — read this carefully: UK bet slips very commonly show odds as a FRACTION (e.g. "11/10", "6/5", "20/23", "5/2"), not a decimal. "odds" must always be the DECIMAL price. If the slip shows a fraction, convert it yourself using decimal = 1 + (numerator ÷ denominator), rounded to 2 decimal places — do NOT just copy the fraction's digits as if they were already a decimal (e.g. "11/10" is NOT 1.10, it converts to 2.10; "6/5" is NOT 1.20, it converts to 2.20; "20/23" converts to approximately 1.87). If the slip already shows a decimal price (e.g. "2.10"), use that value directly with no conversion.
 - "odds_fraction" must be the fraction's digits exactly as printed on the slip (e.g. "20/23"), completely unrelated to any rounding you did for "odds" — this is kept purely so the app can display the true original price later, since re-deriving a fraction from a rounded decimal can land on a different (if similarly simple) fraction than the real one. Set it to null only if the slip genuinely shows a decimal price with no fraction printed anywhere.
 - If a field is illegible or absent, use null for that field rather than guessing a plausible-looking value.
-- Set "confidence" to "low" if more than one field across the whole slip was illegible or ambiguous.${resultRule}`;
+- Set "confidence" to "low" if more than one field across the whole slip was illegible or ambiguous.`;
 }
 
 export async function extractBetFromImage(
   imageBase64: string,
-  mediaType: string,
-  settled = false
+  mediaType: string
 ): Promise<{ raw: string; parsed: LooseExtraction | null; parseError: string | null }> {
   const model = process.env.ANTHROPIC_MODEL;
   if (!model) {
@@ -99,7 +84,7 @@ export async function extractBetFromImage(
               data: imageBase64,
             },
           },
-          { type: "text", text: buildExtractionPrompt(new Date().toISOString().slice(0, 10), settled) },
+          { type: "text", text: buildExtractionPrompt(new Date().toISOString().slice(0, 10)) },
         ],
       },
     ],

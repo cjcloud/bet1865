@@ -10,16 +10,12 @@ const ADD_NEW = "__add_new__";
 // SPEC.md §6.2 mobile requirement: the file input uses `capture` so phones
 // offer the camera directly, not just a file browser. Touch targets here are
 // sized ~44px minimum.
-// `settled` = the retrospective settled-slip flow (SPEC.md §6.1 #3a) - same
-// form, but the API also reads each leg's result off the slip.
 export default function UploadForm({
   players,
   bookmakers,
-  settled = false,
 }: {
   players: Option[];
   bookmakers: Option[];
-  settled?: boolean;
 }) {
   const router = useRouter();
   const [playerId, setPlayerId] = useState("");
@@ -54,7 +50,6 @@ export default function UploadForm({
       formData.set("bookmaker_id", bookmakerId);
     }
     formData.set("file", file);
-    if (settled) formData.set("settled", "1");
 
     setSubmitting(true);
     try {
@@ -146,7 +141,7 @@ export default function UploadForm({
         disabled={submitting}
         className="min-h-[44px] w-full rounded bg-accent text-black font-semibold px-4 disabled:opacity-60"
       >
-        {submitting ? "Reading your slip…" : settled ? "Upload Settled Slip" : "Upload Slip"}
+        {submitting ? "Reading your slip…" : "Upload Slip"}
       </button>
     </form>
   );
