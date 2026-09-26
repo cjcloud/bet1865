@@ -22,6 +22,14 @@ const OUTCOME_LABELS: Record<string, string> = {
 };
 
 const SETTLED_STATUSES = new Set(["won", "lost", "void"]);
+
+// Settled-slip flow (SPEC.md §6.1 #3a) per-leg result picker. Full class
+// strings (not built dynamically) so Tailwind keeps them.
+const LEG_RESULT_OPTIONS = [
+  { value: "won", label: "Won", checked: "peer-checked:border-green-500 peer-checked:bg-green-500/20 peer-checked:text-green-300" },
+  { value: "lost", label: "Lost", checked: "peer-checked:border-red-500 peer-checked:bg-red-500/20 peer-checked:text-red-300" },
+  { value: "void", label: "Void", checked: "peer-checked:border-white/60 peer-checked:bg-white/10 peer-checked:text-white" },
+] as const;
 const BET_STATUS_LABELS: Record<string, string> = {
   pending_review: "Pending review",
   pending_settlement: "Awaiting result",
@@ -70,9 +78,17 @@ export default async function ConfirmPage({
   const { data: player } = await supabase.from("players").select("name").eq("id", bet.player_id).single();
   const { data: bookmaker } = await supabase
     .from("bookmakers")
-    .select("name")
+    .select("name, is_betfair_exchange")
     .eq("id", bet.bookmaker_id)
     .single();
+
+  // A settled slip uploaded via /admin/upload/settled (SPEC.md §6.1 #3a):
+  // until its first successful save it also takes each leg's Won/Lost/Void
+  // result here. Once saved it's an ordinary settled bet — results are then
+  // the Settle screen's job, as for any other bet (§6.3).
+  const retrospective =
+    bet.status === "pending_review" &&
+    (bet.ai_raw_response as { retrospective?: boolean } | null)?.retrospective === true;
 
   // Full lists so the amend form can reassign either — SPEC.md §6.3's
   // "amend any bet-level field" includes correcting a slip recorded
@@ -102,6 +118,7 @@ export default async function ConfirmPage({
     predicted_outcome?: string | null;
     odds?: number | null;
     odds_fraction?: string | null;
+    result?: string | null;
   };
   const aiLegs: AiLeg[] =
     (bet.ai_raw_response as { parsed?: { legs?: AiLeg[] } } | null)?.parsed?.legs ?? [];
@@ -128,6 +145,8 @@ export default async function ConfirmPage({
     match_datetime?: string;
     predicted_outcome?: string;
     odds?: string;
+    result?: string;
+    via_90min?: string;
   };
   let formState: {
     bet_date?: string;
@@ -148,10 +167,14 @@ export default async function ConfirmPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-accent">Check the details</h1>
+      <h1 className="text-2xl font-bold text-accent">
+        {retrospective ? "Check the settled slip" : "Check the details"}
+      </h1>
       <p className="text-white/70">
         {player?.name ?? "Unknown player"} · {bookmaker?.name ?? "Unknown bookmaker"} — fix anything the
         automatic reading got wrong, then save.
+        {retrospective &&
+          " Pick each leg's result as settled by the bookmaker — the bet is saved as settled straight away."}
       </p>
 
       {(() => {
@@ -366,6 +389,18 @@ export default async function ConfirmPage({
               fs?.match_datetime || toLocalDatetimeInputValue(legField(legNumber, "match_datetime"));
             const justSuggested = searchParams.suggestLeg === String(legNumber);
 
+            // Settled-slip flow only: form state > a result already saved on
+            // a partial save > what the AI read off the slip.
+            const savedStatus = legByNumber.get(legNumber)?.status;
+            const legResult =
+              fs?.result ||
+              (savedStatus && savedStatus !== "pending" ? savedStatus : "") ||
+              aiLegByNumber.get(legNumber)?.result?.toLowerCase() ||
+              "";
+            const legVia90Min = fs
+              ? fs.via_90min === "on"
+              : Boolean(legByNumber.get(legNumber)?.settled_via_90min_rule);
+
             return (
               <fieldset key={legNumber} className="space-y-3 border-t border-white/10 pt-4">
                 <legend className="flex items-center gap-2 text-sm text-white/70 mb-1">
@@ -491,6 +526,41 @@ export default async function ConfirmPage({
                     )}
                   </div>
                 </div>
+
+                {retrospective && (
+                  <div>
+                    <span className="block text-sm text-white/70">Result</span>
+                    <div className="mt-1 flex gap-2">
+                      {LEG_RESULT_OPTIONS.map((opt) => (
+                        <label key={opt.value} className="flex-1">
+                          <input
+                            type="radio"
+                            name={`leg_${legNumber}_status`}
+                            value={opt.value}
+                            defaultChecked={legResult === opt.value}
+                            className="peer sr-only"
+                          />
+                          <span
+                            className={`flex min-h-[44px] cursor-pointer items-center justify-center rounded border border-white/20 text-sm font-semibold text-white/60 peer-focus-visible:ring-2 peer-focus-visible:ring-accent ${opt.checked}`}
+                          >
+                            {opt.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {bookmaker?.is_betfair_exchange && (
+                      <label className="mt-2 flex min-h-[44px] items-center gap-2 text-sm text-white/70">
+                        <input
+                          type="checkbox"
+                          name={`leg_${legNumber}_settled_via_90min_rule`}
+                          defaultChecked={legVia90Min}
+                          className="h-5 w-5"
+                        />
+                        Won only via Betfair&apos;s 90-minute rule (win*) — ignored unless Won
+                      </label>
+                    )}
+                  </div>
+                )}
               </fieldset>
             );
           })}

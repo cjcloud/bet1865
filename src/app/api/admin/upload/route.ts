@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { extractBetFromImage } from "@/lib/extract-bet";
 import { legIsComplete, isBelowMinimumOdds } from "@/lib/bet-schema";
 import { fractionToDecimal } from "@/lib/odds-format";
-import { correctNearTermYear } from "@/lib/fixture-date";
+import { correctNearTermYear, correctPastYear } from "@/lib/fixture-date";
 
 export const runtime = "nodejs";
 
@@ -25,6 +25,10 @@ export async function POST(request: Request) {
     const playerId = formData.get("player_id");
     let bookmakerId = formData.get("bookmaker_id");
     const newBookmakerName = formData.get("new_bookmaker_name");
+    // Settled-slip flow (SPEC.md §6.1 #3a): the fixtures have already been
+    // played, so the slip's leg results are extracted too and the confirm
+    // screen offers per-leg Won/Lost/Void entry before the first save.
+    const settled = formData.get("settled") === "1";
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "No slip image provided." }, { status: 400 });
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
     let extractionError: string | null = null;
     try {
       const base64 = Buffer.from(bytes).toString("base64");
-      const result = await extractBetFromImage(base64, file.type);
+      const result = await extractBetFromImage(base64, file.type, settled);
       raw = result.raw;
       parsed = result.parsed;
       extractionError = result.parseError;
@@ -116,8 +120,12 @@ export async function POST(request: Request) {
       // Every slip is for a near-term fixture, so the year is corrected
       // deterministically to whichever of last/this/next year puts the
       // extracted day+month closest to the upload time.
+      // A settled slip's fixtures are all in the past, possibly months
+      // back, so "nearest year" would be wrong there - see correctPastYear.
       if (leg.match_datetime) {
-        leg.match_datetime = correctNearTermYear(leg.match_datetime, uploadTime);
+        leg.match_datetime = settled
+          ? correctPastYear(leg.match_datetime, uploadTime)
+          : correctNearTermYear(leg.match_datetime, uploadTime);
       }
     }
 
@@ -141,7 +149,10 @@ export async function POST(request: Request) {
         slip_return_amount: slipReturnAmount,
         status: "pending_review",
         parsed_by_ai: true,
-        ai_raw_response: { raw, parsed, extraction_error: extractionError },
+        // `retrospective` marks a settled-slip upload so the confirm screen
+        // knows to offer leg-result entry (SPEC.md §6.1 #3a) without a
+        // schema change.
+        ai_raw_response: { raw, parsed, extraction_error: extractionError, retrospective: settled },
         admin_verified: false,
         admin_notes: notes.length ? notes.join(" | ") : null,
       })

@@ -58,6 +58,15 @@ export async function updateBetAction(formData: FormData) {
   const { data: betBefore } = await supabase.from("bets").select("*").eq("id", betId).single();
   if (!betBefore) throw new Error("Bet not found");
 
+  // Settled-slip flow (SPEC.md §6.1 #3a): before its first successful save,
+  // a slip uploaded via /admin/upload/settled also carries each leg's
+  // Won/Lost/Void result, which is required and saved with the leg. Decided
+  // from the DB, not the form, so an amend of an ordinary bet can never
+  // write settlement fields (§6.3).
+  const retrospective =
+    betBefore.status === "pending_review" &&
+    (betBefore.ai_raw_response as { retrospective?: boolean } | null)?.retrospective === true;
+
   const playerId = formData.get("player_id");
   const bookmakerId = formData.get("bookmaker_id");
   const betDate = formData.get("bet_date");
@@ -133,6 +142,9 @@ export async function updateBetAction(formData: FormData) {
     const predictedOutcome = formData.get(`leg_${legNumber}_predicted_outcome`);
     const odds = formData.get(`leg_${legNumber}_odds`);
     const oddsFractionRaw = formData.get(`leg_${legNumber}_odds_fraction`);
+    const legResult = formData.get(`leg_${legNumber}_status`);
+    const resultValid =
+      typeof legResult === "string" && (["won", "lost", "void"] as readonly string[]).includes(legResult);
 
     const hasAnyValue = [league, homeTeam, awayTeam, matchDatetime, predictedOutcome, odds].some(
       (v) => typeof v === "string" && v.trim() !== ""
@@ -172,7 +184,8 @@ export async function updateBetAction(formData: FormData) {
       !matchDatetime ||
       !outcomeValid ||
       !Number.isFinite(oddsNum) ||
-      oddsNum <= 0
+      oddsNum <= 0 ||
+      (retrospective && !resultValid)
     ) {
       // Leave genuinely incomplete/invalid legs out rather than violating
       // the DB's NOT NULL constraints (SPEC.md §5) — admin can finish these
@@ -193,6 +206,7 @@ export async function updateBetAction(formData: FormData) {
       if (typeof matchDatetime !== "string" || !matchDatetime) missing.push("kick-off date/time");
       if (!outcomeValid) missing.push("predicted outcome");
       if (!Number.isFinite(oddsNum) || oddsNum <= 0) missing.push("odds");
+      if (retrospective && !resultValid) missing.push("result");
       legIssues.push(`Leg ${legNumber}: ${missing.join(", ")} missing or invalid`);
       continue;
     }
@@ -212,6 +226,17 @@ export async function updateBetAction(formData: FormData) {
     // That's what makes amending a settled bet's league/teams/kick-off/
     // odds safe: the leg's already-registered Won/Lost/Void status survives
     // the upsert unchanged.
+    //
+    // The one exception is the settled-slip flow, where the result is part
+    // of the first save - same fields the Settle screen writes (§3.9a).
+    const settlementFields = retrospective
+      ? {
+          status: legResult as LegStatus,
+          settled_at: legResult === "void" ? null : new Date().toISOString(),
+          settled_via_90min_rule:
+            legResult === "won" && formData.get(`leg_${legNumber}_settled_via_90min_rule`) === "on",
+        }
+      : {};
     const { error: legWriteError } = await supabase.from("bet_legs").upsert(
       {
         bet_id: betId,
@@ -223,6 +248,7 @@ export async function updateBetAction(formData: FormData) {
         predicted_outcome: predictedOutcome,
         odds: oddsNum,
         odds_fraction: oddsFraction,
+        ...settlementFields,
       },
       { onConflict: "bet_id,leg_number" }
     );
@@ -244,7 +270,13 @@ export async function updateBetAction(formData: FormData) {
       predicted_outcome: predictedOutcome,
       odds: oddsNum,
       odds_fraction: oddsFraction,
+      status: settlementFields.status,
+      settled_via_90min_rule: settlementFields.settled_via_90min_rule,
     };
+    if (!retrospective) {
+      delete newValues.status;
+      delete newValues.settled_via_90min_rule;
+    }
     for (const [key, newVal] of Object.entries(newValues)) {
       const oldVal = before ? (before as Record<string, unknown>)[key] : null;
       if (String(oldVal ?? "") !== String(newVal ?? "")) {
@@ -280,6 +312,18 @@ export async function updateBetAction(formData: FormData) {
 
   if ((legsAfter ?? []).length === 3) {
     const legStatuses = (legsAfter ?? []).map((l) => l.status as LegStatus);
+    if (hasVoidLeg(legStatuses) && betBefore.status === "pending_review") {
+      // Only reachable from the settled-slip flow. A Void leg still needs
+      // the §3.7a reconciliation on the Settle screen (redirected to below);
+      // until then the bet waits in pending_settlement like any other.
+      const { error: voidPendingError } = await supabase
+        .from("bets")
+        .update({ status: "pending_settlement", updated_at: new Date().toISOString() })
+        .eq("id", betId);
+      if (voidPendingError) {
+        throw new Error(`Failed to update bet status after save: ${voidPendingError.message}`);
+      }
+    }
     if (!hasVoidLeg(legStatuses)) {
       const finalSlipReturnAmount =
         typeof betUpdate.slip_return_amount === "number"
@@ -395,6 +439,9 @@ export async function setNearestSaturdayAction(legNumber: number, formData: Form
       match_datetime: str(formData.get(`leg_${n}_match_datetime`)),
       predicted_outcome: str(formData.get(`leg_${n}_predicted_outcome`)),
       odds: str(formData.get(`leg_${n}_odds`)),
+      // Settled-slip flow only (absent otherwise, so "" either way).
+      result: str(formData.get(`leg_${n}_status`)),
+      via_90min: str(formData.get(`leg_${n}_settled_via_90min_rule`)),
     };
   }
   // Only this one leg's kick-off actually changes - everything else in

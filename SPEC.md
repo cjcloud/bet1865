@@ -3,6 +3,15 @@
 Version 1.16 — 31 August 2026
 Owner / Admin: CJ
 
+**Changelog (26 Sep 2026)**: Added a separate **Add a Settled Slip** flow
+(`/admin/upload/settled`, §6.1 #3a) for entering a bet retrospectively after its
+fixtures have been played. The admin uploads the settled slip; extraction also
+reads each leg's Won/Lost/Void result (and anchors undated fixtures in the past,
+not the near-term window); the confirm screen takes each leg's result alongside
+the usual fields; and the first save settles the bet via the normal §3.7 roll-up
+(a Void leg still goes to the §3.7a reconciliation). No schema change — the flow
+is marked by `ai_raw_response.retrospective` (§5).
+
 **Changelog (20 Sep 2026)**: Ranking ties now resolve in the requested order:
 betc\*nt count descending, wins ascending, win\* count descending, Prediction
 Score ascending, then the combined predicted return from every bet ascending.
@@ -581,7 +590,9 @@ create table bets (
   reconciliation      bet_reconciliation not null default 'standard', -- §3.7a, audit/reporting
   win_star            boolean not null default false, -- derived, §3.8/§4 tiebreaker (v1.8)
   parsed_by_ai        boolean not null default true,
-  ai_raw_response     jsonb,                 -- full Claude vision extraction, for audit
+  ai_raw_response     jsonb,                 -- full Claude vision extraction, for audit;
+                                              -- `retrospective: true` marks a settled-slip
+                                              -- upload (§6.1 #3a)
   admin_verified      boolean not null default false,
   admin_notes         text,
   created_at          timestamptz not null default now(),
@@ -708,6 +719,23 @@ live without a recompute job.
    badge as the confirm screen for any leg priced under evens). Public, no auth —
    this is where a general user checks what's been recorded so far; no edit/upload
    controls are shown here (those are admin-only, under `/admin`).
+3a. **Add a Settled Slip** (`/admin/upload/settled`, **admin-only, 26 Sep
+   2026**) — for a bet added retrospectively, after its fixtures have been
+   played. Same player/bookmaker/photo form as Upload; the AI extraction also
+   reads each leg's result as settled by the bookmaker, and undated fixtures
+   get the most recent year that puts them on or before today
+   (`correctPastYear`, `src/lib/fixture-date.ts`) instead of the near-term
+   correction. The confirm screen then shows a required Won/Lost/Void picker
+   per leg (plus the win\* 90-minute-rule checkbox for Betfair Exchange),
+   prefilled from the slip. Saving writes the legs with their results and
+   derives the bet's status/winnings/win\* with the same roll-up as §3.9a —
+   the slip's stated potential return is still `slip_return_amount` (§3.7);
+   the prompt asks for the potential return, not the amount paid out, and
+   leaves it blank for the admin if the slip shows only a losing payout.
+   Any Void leg leaves the bet `pending_settlement` and lands on the Settle
+   screen for the §3.7a reconciliation. The result picker is offered only
+   until the bet's first successful save (while it's still `pending_review`);
+   after that it's an ordinary settled bet, amended/re-settled as in §6.3.
 5. **Ranking** (`/ranking`, **moved from `/` in v1.11**) — the betc\*nt
    leaderboard: table of all 6 players sorted per §4 (betc\*nt descending, wins
    ascending, win\* descending, Prediction Score ascending, total predicted return
@@ -791,7 +819,9 @@ recorded, beyond the settlement-specific corrections already described in §3.7a
   (league, home/away team, kick-off date/time, predicted outcome, odds).
   Settlement-owned fields — Won/Lost/Void status, settlement notes, full-time
   score, and the win\* 90-minute-rule flag — stay the dedicated Settle screen's
-  job (§3.9a) and are left untouched by an amend save.
+  job (§3.9a) and are left untouched by an amend save — the only exception being
+  the first save of a settled slip (§6.1 #3a), which writes each leg's result
+  and 90-minute-rule flag as part of entering it.
   - **Works the same on an already-settled bet as on a pending one.** This is
     deliberate: a slip recorded against the wrong player, or a mistyped stake, is
     just as likely to surface after settlement as before it. The amend screen
